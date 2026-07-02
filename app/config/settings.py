@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     google_token_encryption_key: str = Field(
         "", validation_alias="GOOGLE_TOKEN_ENCRYPTION_KEY"
     )
+    google_pull_interval_minutes: int = Field(
+        5,
+        ge=1,
+        le=1440,
+        validation_alias="GOOGLE_PULL_INTERVAL_MINUTES",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -8,7 +8,11 @@ from app.modules.appointments.deps import get_appointment_service
 from app.modules.appointments.schema import AppointmentSyncResult
 from app.modules.appointments.service import AppointmentService
 from app.modules.google_calendar.deps import get_google_calendar_service
-from app.modules.google_calendar.schema import GoogleAuthUrlRead, GoogleStatusRead
+from app.modules.google_calendar.schema import (
+    GoogleAuthUrlRead,
+    GooglePullResult,
+    GoogleStatusRead,
+)
 from app.modules.google_calendar.service import GoogleCalendarService
 from app.modules.users.model import User
 from app.shared.deps.auth import get_current_user
@@ -94,3 +98,16 @@ def sync_all_appointments(
     current_user: User = Depends(get_current_user),
 ) -> SuccessResponse[AppointmentSyncResult]:
     return ok(appointment_service.sync_all_to_google(current_user))
+
+
+@router.post(
+    "/pull",
+    response_model=SuccessResponse[GooglePullResult],
+    responses=error_responses(401, 409, 503),
+    summary="Importa do Google Calendar os eventos alterados (Google -> sistema)",
+)
+def pull_from_google(
+    service: GoogleCalendarService = Depends(get_google_calendar_service),
+    current_user: User = Depends(get_current_user),
+) -> SuccessResponse[GooglePullResult]:
+    return ok(service.pull_changes(current_user.id))

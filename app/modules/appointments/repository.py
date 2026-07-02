@@ -23,6 +23,21 @@ class AppointmentRepository:
             self._query().where(Appointment.id == appointment_id)
         ).first()
 
+    def get_by_google_event_id(
+        self, google_event_id: str, created_by: int
+    ) -> Appointment | None:
+        """Compromisso do usuário vinculado a um evento do Google.
+
+        Escopado por `created_by`: `google_event_id` é único por calendário
+        (por usuário), então dois usuários não colidem.
+        """
+        return self.db.scalars(
+            self._query().where(
+                Appointment.google_event_id == google_event_id,
+                Appointment.created_by == created_by,
+            )
+        ).first()
+
     def create(
         self,
         title: str,
@@ -45,6 +60,37 @@ class AppointmentRepository:
             client_id=client_id,
             process_id=process_id,
             created_by=created_by,
+        )
+        self.db.add(appointment)
+        self.db.flush()
+        return self.get_by_id(appointment.id)
+
+    def create_from_google(
+        self,
+        created_by: int,
+        google_event_id: str,
+        title: str,
+        type: AppointmentType,
+        starts_at: datetime,
+        duration_minutes: int,
+        description: str | None,
+        location: str | None,
+    ) -> Appointment:
+        """Cria um compromisso importado do Google Calendar.
+
+        Já nasce com `is_synced_to_google=True` e `google_event_id` setado, o
+        que impede o AppointmentService de reenviá-lo pro Google (anti-loop).
+        """
+        appointment = Appointment(
+            title=title,
+            type=type,
+            starts_at=starts_at,
+            duration_minutes=duration_minutes,
+            description=description,
+            location=location,
+            created_by=created_by,
+            google_event_id=google_event_id,
+            is_synced_to_google=True,
         )
         self.db.add(appointment)
         self.db.flush()

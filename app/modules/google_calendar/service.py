@@ -7,14 +7,15 @@ import jwt
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
-from app.modules.appointments.model import Appointment
+from app.modules.appointments.model import Appointment, AppointmentType
+from app.modules.appointments.repository import AppointmentRepository
 from app.modules.google_calendar.crypto import TokenCipher
 from app.modules.google_calendar.oauth import GoogleOAuthFlow
 from app.modules.google_calendar.protocol import GoogleCalendarClient
 from app.modules.google_calendar.repository import GoogleCredentialRepository
-from app.modules.google_calendar.schema import GoogleStatusRead
+from app.modules.google_calendar.schema import GooglePullResult, GoogleStatusRead
 from app.shared.db.uow import unit_of_work
-from app.shared.exceptions import GoogleNotConfiguredError
+from app.shared.exceptions import GoogleNotConfiguredError, GoogleNotConnectedError
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,14 @@ class GoogleCalendarService:
         oauth: GoogleOAuthFlow | None,
         cipher: TokenCipher | None,
         state_secret: str,
+        appointments: AppointmentRepository | None = None,
     ) -> None:
         self.repository = repository
         self.client = client
         self.oauth = oauth
         self.cipher = cipher
         self.state_secret = state_secret
+        self.appointments = appointments
 
     # ----- OAuth / conexão -------------------------------------------------
 
@@ -147,6 +150,109 @@ class GoogleCalendarService:
             )
             return None
 
+    # ----- Pull: Google -> sistema ----------------------------------------
+
+    def pull_changes(self, user_id: int) -> GooglePullResult:
+        """Importa mudanças do Google Calendar do usuário para o sistema.
+
+        Sync incremental via `syncToken`. Cria/atualiza/apaga compromissos
+        locais conforme os eventos vindos do Google. Grava direto no
+        repository de appointments (não passa pelo AppointmentService), então
+        NÃO reenvia nada de volta pro Google — sem loop.
+
+        Levanta GoogleNotConfiguredError / GoogleNotConnectedError para o
+        endpoint manual. O job trata conectividade antes de chamar.
+        """
+        if self.cipher is None or self.appointments is None:
+            raise GoogleNotConfiguredError()
+
+        credential = self.repository.get_by_user(user_id)
+        if credential is None:
+            raise GoogleNotConnectedError()
+
+        refresh_token = self.cipher.decrypt(credential.encrypted_refresh_token)
+        events, next_sync_token = self.client.list_events(
+            refresh_token, credential.sync_token
+        )
+
+        result = GooglePullResult()
+        with unit_of_work(self.repository.db):
+            for event in events:
+                self._apply_event(user_id, event, result)
+            self.repository.update_sync_token(credential, next_sync_token)
+        return result
+
+    def _apply_event(self, user_id: int, event: dict, result: GooglePullResult) -> None:
+        google_event_id = event.get("id")
+        if not google_event_id:
+            return
+
+        existing = self.appointments.get_by_google_event_id(google_event_id, user_id)
+
+        if event.get("status") == "cancelled":
+            if existing is not None:
+                self.appointments.delete(existing)
+                result.deleted += 1
+            return
+
+        fields = self._from_event(event)
+        if fields is None:  # evento sem horário utilizável — ignora
+            return
+
+        if existing is not None:
+            self.appointments.update(existing, fields)
+            result.updated += 1
+        else:
+            self.appointments.create_from_google(
+                created_by=user_id,
+                google_event_id=google_event_id,
+                type=AppointmentType.OUTRO,
+                **fields,
+            )
+            result.created += 1
+
+    @staticmethod
+    def _from_event(event: dict) -> dict | None:
+        """Extrai (title, starts_at, duration_minutes, description, location).
+
+        Suporta eventos com horário (`dateTime`) e de dia inteiro (`date`).
+        Retorna None se não houver início utilizável.
+        """
+        start_raw = event.get("start") or {}
+        end_raw = event.get("end") or {}
+
+        start = GoogleCalendarService._parse_edge(start_raw)
+        if start is None:
+            return None
+        end = GoogleCalendarService._parse_edge(end_raw)
+
+        if "date" in start_raw and "dateTime" not in start_raw:
+            duration_minutes = 30  # evento de dia inteiro
+        elif end is not None and end > start:
+            duration_minutes = int((end - start).total_seconds() // 60)
+        else:
+            duration_minutes = 60
+        duration_minutes = max(1, duration_minutes)
+
+        return {
+            "title": (event.get("summary") or "").strip() or "(sem título)",
+            "starts_at": start,
+            "duration_minutes": duration_minutes,
+            "description": event.get("description"),
+            "location": event.get("location"),
+        }
+
+    @staticmethod
+    def _parse_edge(edge: dict) -> datetime | None:
+        raw = edge.get("dateTime") or edge.get("date")
+        if not raw:
+            return None
+        value = datetime.fromisoformat(raw)
+        if value.tzinfo is None:  # evento all-day ("2026-12-01")
+            # Noon UTC evita que o dia vire para trás em fusos como UTC-3 (Brasil)
+            value = value.replace(hour=12, tzinfo=timezone.utc)
+        return value
+
     @staticmethod
     def _to_event(appointment: Appointment) -> dict:
         start = appointment.starts_at
@@ -199,4 +305,5 @@ def build_google_calendar_service(
             TokenCipher(settings.google_token_encryption_key) if configured else None
         ),
         state_secret=settings.jwt_secret_key,
+        appointments=AppointmentRepository(db),
     )

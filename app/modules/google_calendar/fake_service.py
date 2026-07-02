@@ -9,6 +9,9 @@ class FakeGoogleCalendarClient:
         self.events: dict[str, dict] = {}
         self.fail: bool = False
         self._counter: int = 0
+        # Fila de respostas para list_events: cada item é (eventos, next_token).
+        self.incoming: list[tuple[list[dict], str | None]] = []
+        self.last_sync_token: str | None = "__unset__"
 
     def _maybe_fail(self) -> None:
         if self.fail:
@@ -28,3 +31,12 @@ class FakeGoogleCalendarClient:
     def delete_event(self, refresh_token: str, event_id: str) -> None:
         self._maybe_fail()
         self.events.pop(event_id, None)
+
+    def list_events(
+        self, refresh_token: str, sync_token: str | None
+    ) -> tuple[list[dict], str | None]:
+        self._maybe_fail()
+        self.last_sync_token = sync_token
+        if self.incoming:
+            return self.incoming.pop(0)
+        return [], sync_token

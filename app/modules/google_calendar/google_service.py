@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from app.config.settings import Settings
 from app.modules.google_calendar.oauth import SCOPES
@@ -49,3 +52,44 @@ class GoogleCalendarApiClient:
         self._service(refresh_token).events().delete(
             calendarId=_CALENDAR_ID, eventId=event_id
         ).execute()
+
+    def list_events(
+        self, refresh_token: str, sync_token: str | None
+    ) -> tuple[list[dict], str | None]:
+        service = self._service(refresh_token)
+        try:
+            return self._collect(service, sync_token)
+        except HttpError as exc:
+            if exc.resp.status == 410:
+                # syncToken expirou: Google exige full resync do zero.
+                return self._collect(service, None)
+            raise
+
+    def _collect(
+        self, service, sync_token: str | None
+    ) -> tuple[list[dict], str | None]:
+        params: dict = {
+            "calendarId": _CALENDAR_ID,
+            "singleEvents": True,
+            "showDeleted": True,
+        }
+        if sync_token:
+            params["syncToken"] = sync_token
+        else:
+            # Full sync: só o que começa a partir de agora, evita puxar
+            # histórico gigante. timeMin não pode coexistir com syncToken.
+            params["timeMin"] = datetime.now(timezone.utc).isoformat()
+
+        events: list[dict] = []
+        next_sync_token: str | None = None
+        page_token: str | None = None
+        while True:
+            if page_token:
+                params["pageToken"] = page_token
+            response = service.events().list(**params).execute()
+            events.extend(response.get("items", []))
+            next_sync_token = response.get("nextSyncToken") or next_sync_token
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+        return events, next_sync_token

@@ -14,7 +14,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.config.settings import get_settings
-from app.scheduler.jobs import dispatch_datajud_sync_job, dispatch_deadline_alerts_job
+from app.scheduler.jobs import (
+    dispatch_datajud_sync_job,
+    dispatch_deadline_alerts_job,
+    dispatch_google_pull_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +52,21 @@ def start_scheduler() -> None:
         id="datajud_sync",
         replace_existing=True,
     )
+    _scheduler.add_job(
+        dispatch_google_pull_job,
+        trigger="interval",
+        minutes=settings.google_pull_interval_minutes,
+        id="google_pull",
+        replace_existing=True,
+    )
     _scheduler.start()
     logger.info(
-        "Scheduler started — deadline alerts cron at %02d:%02d; DataJud sync every %dh",
+        "Scheduler started — deadline alerts cron at %02d:%02d; "
+        "DataJud sync every %dh; Google pull every %dmin",
         hour,
         minute,
         settings.datajud_sync_interval_hours,
+        settings.google_pull_interval_minutes,
     )
 
 

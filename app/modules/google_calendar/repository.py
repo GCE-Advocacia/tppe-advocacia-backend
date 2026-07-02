@@ -18,6 +18,16 @@ class GoogleCredentialRepository:
             select(GoogleCredential).where(GoogleCredential.user_id == user_id)
         ).first()
 
+    def list_all(self) -> list[GoogleCredential]:
+        """Todas as credenciais conectadas. Usado pelo job de pull."""
+        return list(self.db.scalars(select(GoogleCredential)).all())
+
+    def update_sync_token(
+        self, credential: GoogleCredential, sync_token: str | None
+    ) -> None:
+        credential.sync_token = sync_token
+        self.db.flush()
+
     def upsert(
         self, user_id: int, encrypted_refresh_token: str, scope: str | None
     ) -> GoogleCredential:

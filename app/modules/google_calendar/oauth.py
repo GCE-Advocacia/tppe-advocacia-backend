@@ -4,7 +4,7 @@ from google_auth_oauthlib.flow import Flow
 
 from app.config.settings import Settings
 
-# Sync unidirecional sistema -> Google: basta gerenciar eventos.
+# Sync bidirecional: `calendar.events` cobre ler e gerenciar eventos.
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 
 _AUTH_URI = "https://accounts.google.com/o/oauth2/auth"

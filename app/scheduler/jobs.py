@@ -22,10 +22,12 @@ from app.modules.email.resend_service import ResendEmailService
 from app.modules.external_api_logs.notifier import ExternalApiFailureNotifier
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
 from app.modules.forensic_holidays.repository import ForensicHolidayRepository
+from app.modules.google_calendar.service import build_google_calendar_service
 from app.modules.notifications.repository import NotificationPreferenceRepository
 from app.modules.notifications.service import NotificationService
 from app.modules.processes.repository import ProcessRepository
 from app.modules.users.repository import UserRepository
+from app.shared.deps.google import get_google_calendar_client
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,43 @@ def dispatch_deadline_alerts_job() -> None:
         logger.info("Deadline alerts job finished — %d alert(s) sent", sent)
     except Exception:
         logger.exception("Deadline alerts job failed")
+
+
+def dispatch_google_pull_job() -> None:
+    """Importa mudanças do Google Calendar de cada usuário conectado.
+
+    Sync incremental (syncToken). Falha de um usuário não interrompe os
+    demais. No-op quando o Google não está configurado.
+    """
+    logger.info("Google Calendar pull job started")
+    created = updated = deleted = 0
+    try:
+        with SessionLocal() as db:
+            client = get_google_calendar_client()
+            service = build_google_calendar_service(db, client)
+            if not service.is_configured:
+                logger.info("Google Calendar pull job skipped — not configured")
+                return
+            credentials = service.repository.list_all()
+            for credential in credentials:
+                try:
+                    result = service.pull_changes(credential.user_id)
+                    created += result.created
+                    updated += result.updated
+                    deleted += result.deleted
+                except Exception:
+                    logger.exception(
+                        "Google Calendar pull failed user_id=%s",
+                        credential.user_id,
+                    )
+        logger.info(
+            "Google Calendar pull job finished — %d created, %d updated, %d deleted",
+            created,
+            updated,
+            deleted,
+        )
+    except Exception:
+        logger.exception("Google Calendar pull job failed")
 
 
 def dispatch_datajud_sync_job() -> None:

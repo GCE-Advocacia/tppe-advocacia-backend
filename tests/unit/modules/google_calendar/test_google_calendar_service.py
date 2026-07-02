@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from cryptography.fernet import Fernet
 
+from app.modules.appointments.model import AppointmentType
 from app.modules.google_calendar.crypto import TokenCipher
 from app.modules.google_calendar.fake_service import FakeGoogleCalendarClient
 from app.modules.google_calendar.service import (
@@ -14,7 +15,7 @@ from app.modules.google_calendar.service import (
     GoogleCalendarService,
     GoogleOAuthError,
 )
-from app.shared.exceptions import GoogleNotConfiguredError
+from app.shared.exceptions import GoogleNotConfiguredError, GoogleNotConnectedError
 
 SECRET = "unit-test-state-secret"
 REFRESH_TOKEN = "1//0-refresh-token"
@@ -120,6 +121,155 @@ class TestSyncAppointment:
 
         assert result is None
         assert "evt-1" not in client.events
+
+
+def pull_credential(cipher: TokenCipher, sync_token=None) -> SimpleNamespace:
+    return SimpleNamespace(
+        user_id=7,
+        encrypted_refresh_token=cipher.encrypt(REFRESH_TOKEN),
+        sync_token=sync_token,
+    )
+
+
+class TestPullChanges:
+    def _service(self, repo, client, cipher, appointments):
+        return GoogleCalendarService(repo, client, None, cipher, SECRET, appointments)
+
+    def test_creates_appointment_from_new_event(self, repo, client, cipher):
+        credential = pull_credential(cipher)
+        repo.get_by_user.return_value = credential
+        appointments = MagicMock()
+        appointments.get_by_google_event_id.return_value = None
+        client.incoming = [
+            (
+                [
+                    {
+                        "id": "g-1",
+                        "status": "confirmed",
+                        "summary": "Audiência",
+                        "start": {"dateTime": "2026-12-01T14:00:00+00:00"},
+                        "end": {"dateTime": "2026-12-01T15:00:00+00:00"},
+                    }
+                ],
+                "tok-next",
+            )
+        ]
+        service = self._service(repo, client, cipher, appointments)
+
+        result = service.pull_changes(7)
+
+        assert result.created == 1
+        kwargs = appointments.create_from_google.call_args.kwargs
+        assert kwargs["google_event_id"] == "g-1"
+        assert kwargs["created_by"] == 7
+        assert kwargs["type"] == AppointmentType.OUTRO
+        assert kwargs["title"] == "Audiência"
+        assert kwargs["duration_minutes"] == 60
+        repo.update_sync_token.assert_called_once_with(credential, "tok-next")
+
+    def test_passes_stored_sync_token_to_client(self, repo, client, cipher):
+        repo.get_by_user.return_value = pull_credential(cipher, sync_token="tok-old")
+        appointments = MagicMock()
+        appointments.get_by_google_event_id.return_value = None
+        service = self._service(repo, client, cipher, appointments)
+
+        service.pull_changes(7)
+
+        assert client.last_sync_token == "tok-old"
+
+    def test_updates_existing_appointment(self, repo, client, cipher):
+        repo.get_by_user.return_value = pull_credential(cipher)
+        existing = SimpleNamespace(id=1)
+        appointments = MagicMock()
+        appointments.get_by_google_event_id.return_value = existing
+        client.incoming = [
+            (
+                [
+                    {
+                        "id": "g-1",
+                        "status": "confirmed",
+                        "summary": "Reunião remarcada",
+                        "start": {"dateTime": "2026-12-01T09:00:00+00:00"},
+                        "end": {"dateTime": "2026-12-01T09:30:00+00:00"},
+                    }
+                ],
+                "tok",
+            )
+        ]
+        service = self._service(repo, client, cipher, appointments)
+
+        result = service.pull_changes(7)
+
+        assert result.updated == 1
+        appointments.create_from_google.assert_not_called()
+        args = appointments.update.call_args.args
+        assert args[0] is existing
+        assert args[1]["duration_minutes"] == 30
+
+    def test_cancelled_event_deletes_local(self, repo, client, cipher):
+        repo.get_by_user.return_value = pull_credential(cipher)
+        existing = SimpleNamespace(id=1)
+        appointments = MagicMock()
+        appointments.get_by_google_event_id.return_value = existing
+        client.incoming = [([{"id": "g-1", "status": "cancelled"}], "tok")]
+        service = self._service(repo, client, cipher, appointments)
+
+        result = service.pull_changes(7)
+
+        assert result.deleted == 1
+        appointments.delete.assert_called_once_with(existing)
+
+    def test_cancelled_unknown_event_is_noop(self, repo, client, cipher):
+        repo.get_by_user.return_value = pull_credential(cipher)
+        appointments = MagicMock()
+        appointments.get_by_google_event_id.return_value = None
+        client.incoming = [([{"id": "g-x", "status": "cancelled"}], "tok")]
+        service = self._service(repo, client, cipher, appointments)
+
+        result = service.pull_changes(7)
+
+        assert result.deleted == 0
+        appointments.delete.assert_not_called()
+
+    def test_all_day_event_defaults_to_30_minutes(self, repo, client, cipher):
+        repo.get_by_user.return_value = pull_credential(cipher)
+        appointments = MagicMock()
+        appointments.get_by_google_event_id.return_value = None
+        client.incoming = [
+            (
+                [
+                    {
+                        "id": "g-2",
+                        "status": "confirmed",
+                        "summary": "",
+                        "start": {"date": "2026-12-01"},
+                        "end": {"date": "2026-12-02"},
+                    }
+                ],
+                "tok",
+            )
+        ]
+        service = self._service(repo, client, cipher, appointments)
+
+        service.pull_changes(7)
+
+        kwargs = appointments.create_from_google.call_args.kwargs
+        assert kwargs["duration_minutes"] == 30
+        assert kwargs["title"] == "(sem título)"
+        assert kwargs["starts_at"] == datetime(
+            2026, 12, 1, 12, 0, 0, tzinfo=timezone.utc
+        )
+
+    def test_raises_when_not_configured(self, repo, client):
+        service = GoogleCalendarService(repo, client, None, None, SECRET, MagicMock())
+        with pytest.raises(GoogleNotConfiguredError):
+            service.pull_changes(7)
+
+    def test_raises_when_not_connected(self, repo, client, cipher):
+        repo.get_by_user.return_value = None
+        service = self._service(repo, client, cipher, MagicMock())
+        with pytest.raises(GoogleNotConnectedError):
+            service.pull_changes(7)
 
 
 class TestStatus:

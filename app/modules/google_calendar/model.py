@@ -24,6 +24,9 @@ class GoogleCredential(Base):
     )
     encrypted_refresh_token: Mapped[str] = mapped_column(Text, nullable=False)
     scope: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Token de sync incremental do Google (events.list). Null = nunca sincronizou
+    # do Google para o sistema; a próxima leitura faz full sync.
+    sync_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     connected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

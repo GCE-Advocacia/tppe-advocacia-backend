@@ -16,3 +16,16 @@ class GoogleCalendarClient(Protocol):
     def update_event(self, refresh_token: str, event_id: str, event: dict) -> None: ...
 
     def delete_event(self, refresh_token: str, event_id: str) -> None: ...
+
+    def list_events(
+        self, refresh_token: str, sync_token: str | None
+    ) -> tuple[list[dict], str | None]:
+        """Lista os eventos alterados desde `sync_token` (sync incremental).
+
+        `sync_token` None = full sync (só eventos a partir de agora). Retorna
+        `(eventos, next_sync_token)`. Cada evento é o recurso cru da Google
+        Calendar API (inclui `status == "cancelled"` para os removidos). Se o
+        token expirou (410 GONE), a implementação refaz um full sync
+        transparentemente.
+        """
+        ...
