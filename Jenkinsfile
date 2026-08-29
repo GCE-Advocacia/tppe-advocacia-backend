@@ -32,7 +32,7 @@ pipeline {
                 branch 'homol'
             }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'REGISTRY_CREDS', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'REGISTRY_GITHUB', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
                     sh '''
                         echo "$REG_PASS" | docker login $REGISTRY -u "$REG_USER" --password-stdin
                         docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG -t $REGISTRY/$IMAGE_NAME:homolog-latest .
@@ -50,8 +50,8 @@ pipeline {
             steps {
                 withCredentials([
                     string(credentialsId: 'SUDO_PASS', variable: 'SUDO_PASSWORD'),
-                    usernamePassword(credentialsId: 'REGISTRY_CREDS', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS'),
-                    file(credentialsId: 'HOMOLOG_ENV_FILE', variable: 'ENV_FILE_PATH')
+                    usernamePassword(credentialsId: 'REGISTRY_GITHUB', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS'),
+                    file(credentialsId: 'ENV_FILE_BACK', variable: 'ENV_FILE_PATH')
         ])     {
                     ansiblePlaybook(
                         playbook: 'ansible/playbooks/deploy.yml',
