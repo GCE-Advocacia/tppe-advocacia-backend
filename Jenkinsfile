@@ -4,7 +4,7 @@ pipeline {
     environment {
         ANSIBLE_HOST_KEY_CHECKING = 'False'
         REGISTRY = 'ghcr.io'
-        IMAGE_NAME = 'GCES/advocacia-backend'
+        IMAGE_NAME = 'gces/advocacia-backend'
         IMAGE_TAG = "homolog-${BUILD_NUMBER}-${GIT_COMMIT[0..7]}"
     }
 
