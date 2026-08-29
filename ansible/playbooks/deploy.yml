@@ -1,0 +1,52 @@
+---
+- name: Deploy da aplicacao em Homologacao
+  hosts: local
+  become: true
+  vars:
+    project_dir: /opt/advocacia-app-homolog
+    registry_image: "{{ registry_image }}"
+    image_tag: "{{ image_tag }}"
+
+  tasks:
+    - name: Garantir diretorio de homologacao no servidor
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copiar docker-compose.yml
+      ansible.builtin.copy:
+        src: ../../docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Autenticar no Container Registry (GHCR)
+      ansible.builtin.shell:
+        cmd: "echo {{ registry_password | quote }} | docker login {{ registry_url }} -u {{ registry_user | quote }} --password-stdin"
+      no_log: true
+
+    - name: Copiar arquivo .env para o servidor de homologacao
+      ansible.builtin.copy:
+        src: "{{ env_file_path }}"
+        dest: "{{ project_dir }}/.env"
+        mode: "0600"
+
+    - name: Pull das imagens de homologacao
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ project_dir }}"
+      environment:
+        REGISTRY_IMAGE: "{{ registry_image }}"
+        IMAGE_TAG: "{{ image_tag }}"
+
+    - name: Recriar containers em homologacao
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate --remove-orphans
+        chdir: "{{ project_dir }}"
+      environment:
+        REGISTRY_IMAGE: "{{ registry_image }}"
+        IMAGE_TAG: "{{ image_tag }}"
+
+    - name: Limpar imagens antigas
+      ansible.builtin.command:
+        cmd: docker image prune -af

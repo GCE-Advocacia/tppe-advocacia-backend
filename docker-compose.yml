@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: ghcr.io/bessazs/docker-images/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-advocacia_db}
@@ -19,18 +19,18 @@ services:
       retries: 5
 
   api:
-    build: .
+    image: ${REGISTRY_IMAGE}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     command: >
-      sh -c "alembic upgrade head && gunicorn app.main:app
-      --workers 3
-      --worker-class uvicorn.workers.UvicornWorker
-      --bind 0.0.0.0:8000
-      --timeout 120
-      --max-requests 1000
-      --max-requests-jitter 100
-      --access-logfile -
-      --error-logfile -
+      sh -c "alembic upgrade head && gunicorn app.main:app 
+      --workers 3 
+      --worker-class uvicorn.workers.UvicornWorker 
+      --bind 0.0.0.0:8000 
+      --timeout 120 
+      --max-requests 1000 
+      --max-requests-jitter 100 
+      --access-logfile - 
+      --error-logfile - 
       --log-level info"
     env_file:
       - .env
@@ -43,7 +43,13 @@ services:
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -53,7 +59,7 @@ services:
         condition: service_healthy
 
   scheduler:
-    build: .
+    image: ${REGISTRY_IMAGE}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     command: python scripts/run_scheduler.py
     env_file:
