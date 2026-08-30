@@ -1,6 +1,6 @@
 ---
 - name: Deploy da aplicacao em Homologacao
-  hosts: Servers
+  hosts: servers
   become: true
   vars:
     project_dir: /opt/advocacia-app-homolog
