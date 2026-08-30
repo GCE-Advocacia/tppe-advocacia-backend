@@ -3,7 +3,7 @@
   hosts: servers
   become: true
   vars:
-    project_dir: /opt/advocacia-app-homolog
+    project_dir: /home/fga/advocacia-app-back-homolog
     registry_image: "{{ registry_image }}"
     image_tag: "{{ image_tag }}"
 
