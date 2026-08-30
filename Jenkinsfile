@@ -49,7 +49,6 @@ pipeline {
             }
             steps {
                 withCredentials([
-                    string(credentialsId: 'SUDO_PASS', variable: 'SUDO_PASSWORD'),
                     usernamePassword(credentialsId: 'REGISTRY_GITHUB', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS'),
                     file(credentialsId: 'ENV_FILE_BACK', variable: 'ENV_FILE_PATH')
         ])     {
@@ -61,7 +60,6 @@ pipeline {
                             registry_image: "${REGISTRY}/${IMAGE_NAME}",
                             image_tag: "${IMAGE_TAG}",
                             env_target: "homologation",
-                            ansible_become_password: '${SUDO_PASSWORD}',        
                             registry_url: "${REGISTRY}",
                             registry_user: '${REG_USER}',
                             registry_password: '${REG_PASS}',
