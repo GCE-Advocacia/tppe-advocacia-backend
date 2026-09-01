@@ -19,6 +19,12 @@
         dest: "{{ project_dir }}/docker-compose.yml"
         mode: "0644"
 
+    - name: Substituir build . pema imagem do registry no docker compose.
+      ansible.builtin.replace:
+        path: "{{ project_dir }}/docker-compose.yml"
+        regexp: '^(\s*)build:\s*\.\s*$'
+        replace: '\1image: ${REGISTRY_IMAGE}:${IMAGE_TAG:-latest}'
+
     - name: Autenticar no Container Registry (GHCR)
       ansible.builtin.shell:
         cmd: "echo {{ registry_password | quote }} | docker login {{ registry_url }} -u {{ registry_user | quote }} --password-stdin"

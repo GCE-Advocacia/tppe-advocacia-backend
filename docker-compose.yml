@@ -19,7 +19,7 @@ services:
       retries: 5
 
   api:
-    image: ${REGISTRY_IMAGE}:${IMAGE_TAG:-latest}
+    build: .
     restart: unless-stopped
     command: >
       sh -c "alembic upgrade head && gunicorn app.main:app 
@@ -59,7 +59,7 @@ services:
         condition: service_healthy
 
   scheduler:
-    image: ${REGISTRY_IMAGE}:${IMAGE_TAG:-latest}
+    build: .
     restart: unless-stopped
     command: python scripts/run_scheduler.py
     env_file:
