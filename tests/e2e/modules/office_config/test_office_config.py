@@ -61,6 +61,13 @@ class TestGetOfficeConfig:
             "hero_image_position",
             "about_image_position",
             "lawyer_image_position",
+            "color",
+            "color_bg_primary",
+            "color_bg_secondary",
+            "color_bg_sobre",
+            "color_buttons",
+            "color_title_primary",
+            "color_title_secondary",
         ]
         for field in expected_fields:
             assert field in data, f"Missing field: {field}"
@@ -206,3 +213,65 @@ class TestPatchOfficeConfig:
             headers=admin_headers,
         )
         assert response.status_code == 422
+
+    def test_color_defaults_to_null(self, client):
+        data = client.get(OFFICE_CONFIG_URL).json()["data"]
+        assert data["color"] is None
+
+    def test_admin_can_update_color(self, client, admin_headers):
+        response = client.patch(
+            OFFICE_CONFIG_URL,
+            json={"color": "#1E3A8A"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["color"] == "#1E3A8A"
+
+    def test_color_persists_after_other_update(self, client, admin_headers):
+        client.patch(
+            OFFICE_CONFIG_URL,
+            json={"color": "#FF5733"},
+            headers=admin_headers,
+        )
+        client.patch(
+            OFFICE_CONFIG_URL,
+            json={"office_name": "Novo Escritório"},
+            headers=admin_headers,
+        )
+        data = client.get(OFFICE_CONFIG_URL).json()["data"]
+        assert data["color"] == "#FF5733"
+
+    def test_color_rejects_value_exceeding_max_length(
+        self, client, admin_headers
+    ):
+        response = client.patch(
+            OFFICE_CONFIG_URL,
+            json={"color": "x" * 51},
+            headers=admin_headers,
+        )
+        assert response.status_code == 422
+
+    def test_admin_can_update_landing_page_colors(self, client, admin_headers):
+        payload = {
+            "color_bg_primary": "#0A192F",
+            "color_bg_secondary": "#F0F4F8",
+            "color_bg_sobre": "#FFFFFF",
+            "color_buttons": "#E63946",
+            "color_title_primary": "#F1FAEE",
+            "color_title_secondary": "#1D3557",
+        }
+        response = client.patch(
+            OFFICE_CONFIG_URL,
+            json=payload,
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        for key, val in payload.items():
+            assert data[key] == val
+
+        # Valida se persiste no GET
+        get_res = client.get(OFFICE_CONFIG_URL).json()["data"]
+        for key, val in payload.items():
+            assert get_res[key] == val
