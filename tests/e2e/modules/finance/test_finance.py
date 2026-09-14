@@ -1,0 +1,61 @@
+import pytest
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
+
+from app.modules.finance.model import FinancialTransaction
+
+INCOMES_URL = "/api/v1/finance/incomes"
+
+
+@pytest.fixture
+def cleanup_transactions(db_session: Session, admin_user):
+    # Depende de admin_user para ser finalizada ANTES da remoção do usuário
+    # (FK created_by -> users.id).
+    ids: list[int] = []
+    yield ids
+    db_session.execute(
+        delete(FinancialTransaction).where(FinancialTransaction.id.in_(ids))
+    )
+    db_session.commit()
+
+
+def transaction_payload(**kwargs) -> dict:
+    payload = {
+        "description": "Honorários contratuais",
+        "amount": "1500.50",
+        "transaction_date": "2099-01-10",
+    }
+    payload.update(kwargs)
+    return payload
+
+
+class TestCreateIncome:
+    def test_requires_auth(self, client):
+        response = client.post(INCOMES_URL, json=transaction_payload())
+        assert response.status_code in (401, 403)
+
+    def test_user_forbidden(self, client, user_headers):
+        response = client.post(
+            INCOMES_URL, json=transaction_payload(), headers=user_headers
+        )
+        assert response.status_code == 403
+
+    def test_admin_creates_income(self, client, admin_headers, cleanup_transactions):
+        response = client.post(
+            INCOMES_URL, json=transaction_payload(), headers=admin_headers
+        )
+
+        assert response.status_code == 201
+        data = response.json()["data"]
+        cleanup_transactions.append(data["id"])
+        assert data["type"] == "INCOME"
+        assert data["amount"] == "1500.50"
+        assert data["transaction_date"] == "2099-01-10"
+
+    def test_rejects_non_positive_amount(self, client, admin_headers):
+        response = client.post(
+            INCOMES_URL, json=transaction_payload(amount="0"), headers=admin_headers
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"

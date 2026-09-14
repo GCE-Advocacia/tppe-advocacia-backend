@@ -3087,3 +3087,59 @@ Sincronização retroativa: envia ao Google Calendar os compromissos **futuros**
 | 401    | `UNAUTHORIZED`          | Token ausente ou inválido                      |
 | 409    | `GOOGLE_NOT_CONNECTED`  | Usuário não conectou uma conta Google          |
 | 503    | `GOOGLE_NOT_CONFIGURED` | Integração não configurada no servidor         |
+
+---
+
+## Finance
+
+> Todos os endpoints exigem role `ADMIN`.
+> Header obrigatório: `Authorization: Bearer <token>`
+
+Lançamentos financeiros do escritório. Entradas (`INCOME`) e saídas (`EXPENSE`) ficam na mesma tabela, diferenciadas por `type`.
+
+- `amount` é decimal positivo com até 2 casas e é **retornado como string** (ex.: `"1500.50"`) para não perder precisão
+- `transaction_date` é a data do lançamento (`YYYY-MM-DD`) e é a data usada nos filtros por período
+
+---
+
+### `POST /api/v1/finance/incomes`
+
+Registra uma entrada financeira.
+
+**Body**
+
+```json
+{
+  "description": "Honorários contratuais",
+  "amount": "1500.50",
+  "transaction_date": "2026-09-01"
+}
+```
+
+> `amount` aceita número ou string; deve ser > 0 e ter no máximo 2 casas decimais.
+
+**Resposta 201**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "type": "INCOME",
+    "description": "Honorários contratuais",
+    "amount": "1500.50",
+    "transaction_date": "2026-09-01",
+    "created_by": 3,
+    "created_at": "2026-09-13T12:00:00Z",
+    "updated_at": "2026-09-13T12:00:00Z"
+  }
+}
+```
+
+**Erros**
+
+| Status | Code               | Situação                                                                 |
+| ------ | ------------------ | ------------------------------------------------------------------------ |
+| 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                                |
+| 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                                                    |
+| 422    | `VALIDATION_ERROR` | `description` vazia, `amount` ≤ 0 ou com mais de 2 casas, data inválida  |
