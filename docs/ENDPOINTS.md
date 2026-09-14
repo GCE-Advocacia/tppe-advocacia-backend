@@ -3230,3 +3230,42 @@ Lista entradas e saídas com paginação e filtro opcional por período, ordenad
 | 403    | `FORBIDDEN`                | Usuário não é `ADMIN`             |
 | 422    | `INVALID_FINANCIAL_PERIOD` | `date_from` posterior a `date_to` |
 | 422    | `VALIDATION_ERROR`         | Data em formato inválido          |
+
+---
+
+### `GET /api/v1/finance/summary`
+
+Resumo financeiro. Soma as entradas e as saídas (no período, se informado) e calcula o saldo (`total_income - total_expense`). Sem `date_from`/`date_to`, considera todos os lançamentos.
+
+**Query params**
+
+| Parâmetro   | Tipo                  | Obrigatório | Descrição                                           |
+| ----------- | --------------------- | ----------- | --------------------------------------------------- |
+| `date_from` | `date` (`YYYY-MM-DD`) | Não         | Limite inferior (inclusive) para `transaction_date` |
+| `date_to`   | `date` (`YYYY-MM-DD`) | Não         | Limite superior (inclusive) para `transaction_date` |
+
+**Resposta 200**
+
+```json
+{
+  "success": true,
+  "data": {
+    "date_from": "2026-09-01",
+    "date_to": "2026-09-30",
+    "total_income": "1500.00",
+    "total_expense": "200.25",
+    "balance": "1299.75"
+  }
+}
+```
+
+> Valores monetários são strings com 2 casas. `balance` pode ser negativo (ex.: `"-150.50"`). Sem lançamentos no período, os três valores vêm como `"0.00"`.
+
+**Erros**
+
+| Status | Code                       | Situação                          |
+| ------ | -------------------------- | --------------------------------- |
+| 401    | `UNAUTHORIZED`             | Token ausente ou inválido         |
+| 403    | `FORBIDDEN`                | Usuário não é `ADMIN`             |
+| 422    | `INVALID_FINANCIAL_PERIOD` | `date_from` posterior a `date_to` |
+| 422    | `VALIDATION_ERROR`         | Data em formato inválido          |

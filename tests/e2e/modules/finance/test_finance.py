@@ -7,6 +7,7 @@ from app.modules.finance.model import FinancialTransaction
 INCOMES_URL = "/api/v1/finance/incomes"
 EXPENSES_URL = "/api/v1/finance/expenses"
 TRANSACTIONS_URL = "/api/v1/finance/transactions"
+SUMMARY_URL = "/api/v1/finance/summary"
 
 
 @pytest.fixture
@@ -150,6 +151,81 @@ class TestListTransactionsByPeriod:
     def test_rejects_inverted_period(self, client, admin_headers):
         response = client.get(
             f"{TRANSACTIONS_URL}?date_from=2098-02-28&date_to=2098-02-01",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "INVALID_FINANCIAL_PERIOD"
+
+
+class TestFinancialSummary:
+    def test_user_forbidden(self, client, user_headers):
+        response = client.get(SUMMARY_URL, headers=user_headers)
+        assert response.status_code == 403
+
+    def test_summary_for_period(self, client, admin_headers, cleanup_transactions):
+        created = [
+            client.post(
+                INCOMES_URL,
+                json=transaction_payload(
+                    amount="1000.50", transaction_date="2097-03-01"
+                ),
+                headers=admin_headers,
+            ),
+            client.post(
+                INCOMES_URL,
+                json=transaction_payload(
+                    amount="499.50", transaction_date="2097-03-31"
+                ),
+                headers=admin_headers,
+            ),
+            client.post(
+                EXPENSES_URL,
+                json=transaction_payload(
+                    amount="200.25", transaction_date="2097-03-15"
+                ),
+                headers=admin_headers,
+            ),
+            client.post(
+                INCOMES_URL,
+                json=transaction_payload(
+                    amount="300.00", transaction_date="2097-04-01"
+                ),
+                headers=admin_headers,
+            ),
+        ]
+        cleanup_transactions.extend(r.json()["data"]["id"] for r in created)
+
+        response = client.get(
+            f"{SUMMARY_URL}?date_from=2097-03-01&date_to=2097-03-31",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["date_from"] == "2097-03-01"
+        assert data["date_to"] == "2097-03-31"
+        assert data["total_income"] == "1500.00"
+        assert data["total_expense"] == "200.25"
+        assert data["balance"] == "1299.75"
+
+    def test_summary_without_period(self, client, admin_headers):
+        response = client.get(SUMMARY_URL, headers=admin_headers)
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["date_from"] is None
+        assert set(data) == {
+            "date_from",
+            "date_to",
+            "total_income",
+            "total_expense",
+            "balance",
+        }
+
+    def test_rejects_inverted_period(self, client, admin_headers):
+        response = client.get(
+            f"{SUMMARY_URL}?date_from=2097-03-31&date_to=2097-03-01",
             headers=admin_headers,
         )
 

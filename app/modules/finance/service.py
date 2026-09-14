@@ -5,7 +5,10 @@ from decimal import Decimal
 
 from app.modules.finance.model import FinancialTransaction, TransactionType
 from app.modules.finance.repository import FinancialTransactionRepository
-from app.modules.finance.schema import FinancialTransactionCreate
+from app.modules.finance.schema import (
+    FinancialSummaryRead,
+    FinancialTransactionCreate,
+)
 from app.modules.users.model import User
 from app.shared.db.uow import unit_of_work
 from app.shared.exceptions import InvalidFinancialPeriodError
@@ -63,6 +66,19 @@ class FinanceService:
         return self.calculate_balance(
             self.get_total_income(date_from, date_to),
             self.get_total_expense(date_from, date_to),
+        )
+
+    def get_summary(
+        self, date_from: date | None = None, date_to: date | None = None
+    ) -> FinancialSummaryRead:
+        total_income = self.get_total_income(date_from, date_to)
+        total_expense = self.get_total_expense(date_from, date_to)
+        return FinancialSummaryRead(
+            date_from=date_from,
+            date_to=date_to,
+            total_income=total_income,
+            total_expense=total_expense,
+            balance=self.calculate_balance(total_income, total_expense),
         )
 
     @staticmethod

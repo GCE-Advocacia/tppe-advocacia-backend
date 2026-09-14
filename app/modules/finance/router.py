@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.modules.finance.deps import get_finance_service
 from app.modules.finance.schema import (
+    FinancialSummaryRead,
     FinancialTransactionCreate,
     FinancialTransactionRead,
 )
@@ -76,3 +77,18 @@ def list_transactions(
         page=page,
         limit=limit,
     )
+
+
+@router.get(
+    "/summary",
+    response_model=SuccessResponse[FinancialSummaryRead],
+    responses=error_responses(401, 403, 422),
+    summary="Resumo financeiro: total de entradas, total de saídas e saldo (admin)",
+)
+def get_summary(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    service: FinanceService = Depends(get_finance_service),
+    _: User = Depends(require_admin),
+) -> SuccessResponse[FinancialSummaryRead]:
+    return ok(service.get_summary(date_from=date_from, date_to=date_to))

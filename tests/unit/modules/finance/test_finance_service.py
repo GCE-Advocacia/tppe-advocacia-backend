@@ -190,3 +190,21 @@ class TestGetBalance:
     def test_raises_on_inverted_period(self, service):
         with pytest.raises(InvalidFinancialPeriodError):
             service.get_balance(date(2026, 9, 30), date(2026, 9, 1))
+
+
+class TestGetSummary:
+    def test_returns_totals_and_balance(self, service, repo):
+        repo.sum_amount.side_effect = sum_by_type("1500.00", "200.25")
+
+        summary = service.get_summary(date(2026, 9, 1), date(2026, 9, 30))
+
+        assert summary.date_from == date(2026, 9, 1)
+        assert summary.date_to == date(2026, 9, 30)
+        assert summary.total_income == Decimal("1500.00")
+        assert summary.total_expense == Decimal("200.25")
+        assert summary.balance == Decimal("1299.75")
+        assert repo.sum_amount.call_count == 2
+
+    def test_raises_on_inverted_period(self, service):
+        with pytest.raises(InvalidFinancialPeriodError):
+            service.get_summary(date(2026, 9, 30), date(2026, 9, 1))

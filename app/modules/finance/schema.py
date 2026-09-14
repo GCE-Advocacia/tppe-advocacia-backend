@@ -23,3 +23,11 @@ class FinancialTransactionRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FinancialSummaryRead(BaseModel):
+    date_from: date | None
+    date_to: date | None
+    total_income: Decimal
+    total_expense: Decimal
+    balance: Decimal
