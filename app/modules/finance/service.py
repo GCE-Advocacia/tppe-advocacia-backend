@@ -54,6 +54,18 @@ class FinanceService:
         )
 
     @staticmethod
+    def calculate_balance(total_income: Decimal, total_expense: Decimal) -> Decimal:
+        return total_income - total_expense
+
+    def get_balance(
+        self, date_from: date | None = None, date_to: date | None = None
+    ) -> Decimal:
+        return self.calculate_balance(
+            self.get_total_income(date_from, date_to),
+            self.get_total_expense(date_from, date_to),
+        )
+
+    @staticmethod
     def _validate_period(date_from: date | None, date_to: date | None) -> None:
         if date_from is not None and date_to is not None and date_from > date_to:
             raise InvalidFinancialPeriodError()

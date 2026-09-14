@@ -152,3 +152,41 @@ class TestGetTotalExpense:
             service.get_total_expense(date(2026, 9, 30), date(2026, 9, 1))
 
         repo.sum_amount.assert_not_called()
+
+
+def sum_by_type(income: str, expense: str):
+    totals = {
+        TransactionType.INCOME: Decimal(income),
+        TransactionType.EXPENSE: Decimal(expense),
+    }
+    return lambda type_, **_: totals[type_]
+
+
+class TestCalculateBalance:
+    @pytest.mark.parametrize(
+        ("income", "expense", "expected"),
+        [
+            ("1500.00", "200.25", "1299.75"),
+            ("100.00", "250.50", "-150.50"),
+            ("0.00", "0.00", "0.00"),
+            ("0.10", "0.20", "-0.10"),
+        ],
+    )
+    def test_subtracts_expenses_from_incomes(self, income, expense, expected):
+        balance = FinanceService.calculate_balance(Decimal(income), Decimal(expense))
+
+        assert balance == Decimal(expected)
+
+
+class TestGetBalance:
+    def test_uses_period_totals(self, service, repo):
+        repo.sum_amount.side_effect = sum_by_type("1500.00", "200.25")
+
+        balance = service.get_balance(date(2026, 9, 1), date(2026, 9, 30))
+
+        assert balance == Decimal("1299.75")
+        assert repo.sum_amount.call_count == 2
+
+    def test_raises_on_inverted_period(self, service):
+        with pytest.raises(InvalidFinancialPeriodError):
+            service.get_balance(date(2026, 9, 30), date(2026, 9, 1))
