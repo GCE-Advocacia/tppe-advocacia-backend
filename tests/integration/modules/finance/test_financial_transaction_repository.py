@@ -115,3 +115,18 @@ class TestSumAmount:
         repo = FinancialTransactionRepository(db)
 
         assert repo.sum_amount(TransactionType.INCOME) == Decimal("0.00")
+
+    def test_sums_only_expenses_inside_period(self, db: Session):
+        repo = FinancialTransactionRepository(db)
+        _create(repo, TransactionType.EXPENSE, "200.25", date(2026, 9, 1))
+        _create(repo, TransactionType.EXPENSE, "99.75", date(2026, 9, 30))
+        _create(repo, TransactionType.INCOME, "1000.00", date(2026, 9, 15))
+        _create(repo, TransactionType.EXPENSE, "50.00", date(2026, 8, 31))
+
+        total = repo.sum_amount(
+            TransactionType.EXPENSE,
+            date_from=date(2026, 9, 1),
+            date_to=date(2026, 9, 30),
+        )
+
+        assert total == Decimal("300.00")

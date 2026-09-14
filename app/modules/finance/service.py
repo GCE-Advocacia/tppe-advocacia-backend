@@ -45,6 +45,14 @@ class FinanceService:
             TransactionType.INCOME, date_from=date_from, date_to=date_to
         )
 
+    def get_total_expense(
+        self, date_from: date | None = None, date_to: date | None = None
+    ) -> Decimal:
+        self._validate_period(date_from, date_to)
+        return self.repository.sum_amount(
+            TransactionType.EXPENSE, date_from=date_from, date_to=date_to
+        )
+
     @staticmethod
     def _validate_period(date_from: date | None, date_to: date | None) -> None:
         if date_from is not None and date_to is not None and date_from > date_to:
