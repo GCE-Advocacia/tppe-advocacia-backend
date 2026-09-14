@@ -12,6 +12,7 @@ from app.modules.audit_logs.model import AuditLog  # noqa: F401
 from app.modules.clients.model import Client, ClientNote  # noqa: F401
 from app.modules.deadlines.model import Deadline, DeadlineAlert  # noqa: F401
 from app.modules.external_api_logs.model import ExternalApiLog  # noqa: F401
+from app.modules.finance.model import FinancialTransaction  # noqa: F401
 from app.modules.forensic_holidays.model import ForensicHoliday  # noqa: F401
 from app.modules.google_calendar.model import GoogleCredential  # noqa: F401
 from app.modules.leads.model import Lead  # noqa: F401
