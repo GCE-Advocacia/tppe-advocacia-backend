@@ -21,6 +21,11 @@ class FinanceService:
     ) -> FinancialTransaction:
         return self._create(TransactionType.EXPENSE, payload, current_user)
 
+    def list_transactions(
+        self, page: int, limit: int
+    ) -> tuple[list[FinancialTransaction], int]:
+        return self.repository.list(page=page, limit=limit)
+
     def _create(
         self,
         type_: TransactionType,

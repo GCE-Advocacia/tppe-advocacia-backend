@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.finance.model import FinancialTransaction, TransactionType
@@ -33,3 +34,21 @@ class FinancialTransactionRepository:
         self.db.add(transaction)
         self.db.flush()
         return transaction
+
+    def list(
+        self, page: int = 1, limit: int = 20
+    ) -> tuple[list[FinancialTransaction], int]:
+        base = select(FinancialTransaction)
+
+        total = self.db.scalar(select(func.count()).select_from(base.subquery())) or 0
+        items = list(
+            self.db.scalars(
+                base.order_by(
+                    FinancialTransaction.transaction_date.desc(),
+                    FinancialTransaction.id.desc(),
+                )
+                .offset((page - 1) * limit)
+                .limit(limit)
+            ).all()
+        )
+        return items, total

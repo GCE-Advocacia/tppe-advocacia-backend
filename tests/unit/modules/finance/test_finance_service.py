@@ -69,3 +69,15 @@ class TestCreateExpense:
         assert kwargs["type_"] == TransactionType.EXPENSE
         assert kwargs["amount"] == Decimal("3200.00")
         assert kwargs["created_by"] == 7
+
+
+class TestListTransactions:
+    def test_delegates_pagination_to_repository(self, service, repo):
+        repo.list.return_value = ([], 0)
+
+        items, total = service.list_transactions(page=2, limit=10)
+
+        assert (items, total) == ([], 0)
+        kwargs = repo.list.call_args.kwargs
+        assert kwargs["page"] == 2
+        assert kwargs["limit"] == 10

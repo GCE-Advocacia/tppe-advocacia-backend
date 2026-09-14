@@ -3185,3 +3185,44 @@ Registra uma saída financeira. Mesmo body e mesmas validações de `POST /api/v
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                                |
 | 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                                                    |
 | 422    | `VALIDATION_ERROR` | `description` vazia, `amount` ≤ 0 ou com mais de 2 casas, data inválida  |
+
+---
+
+### `GET /api/v1/finance/transactions`
+
+Lista entradas e saídas com paginação, ordenadas por `transaction_date DESC, id DESC`. Alimenta a tela de controle financeiro.
+
+**Query params**
+
+| Parâmetro | Tipo              | Obrigatório | Descrição                        |
+| --------- | ----------------- | ----------- | -------------------------------- |
+| `page`    | `integer` (≥ 1)   | Não         | Página atual (default: `1`)      |
+| `limit`   | `integer` (1–100) | Não         | Itens por página (default: `20`) |
+
+**Resposta 200**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 2,
+      "type": "EXPENSE",
+      "description": "Aluguel do escritório",
+      "amount": "3200.00",
+      "transaction_date": "2026-09-05",
+      "created_by": 3,
+      "created_at": "2026-09-13T12:00:00Z",
+      "updated_at": "2026-09-13T12:00:00Z"
+    }
+  ],
+  "meta": { "total": 1, "page": 1, "limit": 20, "pages": 1 }
+}
+```
+
+**Erros**
+
+| Status | Code           | Situação                  |
+| ------ | -------------- | ------------------------- |
+| 401    | `UNAUTHORIZED` | Token ausente ou inválido |
+| 403    | `FORBIDDEN`    | Usuário não é `ADMIN`     |

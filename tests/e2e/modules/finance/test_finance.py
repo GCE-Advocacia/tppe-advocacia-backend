@@ -6,6 +6,7 @@ from app.modules.finance.model import FinancialTransaction
 
 INCOMES_URL = "/api/v1/finance/incomes"
 EXPENSES_URL = "/api/v1/finance/expenses"
+TRANSACTIONS_URL = "/api/v1/finance/transactions"
 
 
 @pytest.fixture
@@ -90,3 +91,33 @@ class TestCreateExpense:
         )
 
         assert response.status_code == 422
+
+
+class TestListTransactions:
+    def test_user_forbidden(self, client, user_headers):
+        response = client.get(TRANSACTIONS_URL, headers=user_headers)
+        assert response.status_code == 403
+
+    def test_admin_lists_incomes_and_expenses(
+        self, client, admin_headers, cleanup_transactions
+    ):
+        income = client.post(
+            INCOMES_URL,
+            json=transaction_payload(transaction_date="2099-12-30"),
+            headers=admin_headers,
+        ).json()["data"]
+        expense = client.post(
+            EXPENSES_URL,
+            json=transaction_payload(amount="80.00", transaction_date="2099-12-31"),
+            headers=admin_headers,
+        ).json()["data"]
+        cleanup_transactions.extend([income["id"], expense["id"]])
+
+        response = client.get(f"{TRANSACTIONS_URL}?limit=100", headers=admin_headers)
+
+        assert response.status_code == 200
+        body = response.json()
+        ids = [t["id"] for t in body["data"]]
+        assert income["id"] in ids
+        assert expense["id"] in ids
+        assert body["meta"]["page"] == 1
