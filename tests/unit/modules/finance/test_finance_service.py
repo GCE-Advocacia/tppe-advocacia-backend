@@ -112,3 +112,23 @@ class TestListTransactionsByPeriod:
         )
 
         repo.list.assert_called_once()
+
+
+class TestGetTotalIncome:
+    def test_sums_income_type_for_period(self, service, repo):
+        repo.sum_amount.return_value = Decimal("1500.00")
+
+        total = service.get_total_income(date(2026, 9, 1), date(2026, 9, 30))
+
+        assert total == Decimal("1500.00")
+        repo.sum_amount.assert_called_once_with(
+            TransactionType.INCOME,
+            date_from=date(2026, 9, 1),
+            date_to=date(2026, 9, 30),
+        )
+
+    def test_raises_on_inverted_period(self, service, repo):
+        with pytest.raises(InvalidFinancialPeriodError):
+            service.get_total_income(date(2026, 9, 30), date(2026, 9, 1))
+
+        repo.sum_amount.assert_not_called()

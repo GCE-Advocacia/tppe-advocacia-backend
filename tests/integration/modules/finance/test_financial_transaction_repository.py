@@ -86,3 +86,32 @@ class TestListByPeriod:
 
         assert total == 1
         assert items[0].id == kept.id
+
+
+class TestSumAmount:
+    def test_sums_only_incomes_inside_period(self, db: Session):
+        repo = FinancialTransactionRepository(db)
+        _create(repo, TransactionType.INCOME, "1000.50", date(2026, 9, 1))
+        _create(repo, TransactionType.INCOME, "499.50", date(2026, 9, 30))
+        _create(repo, TransactionType.EXPENSE, "200.25", date(2026, 9, 15))
+        _create(repo, TransactionType.INCOME, "300.00", date(2026, 10, 1))
+
+        total = repo.sum_amount(
+            TransactionType.INCOME,
+            date_from=date(2026, 9, 1),
+            date_to=date(2026, 9, 30),
+        )
+
+        assert total == Decimal("1500.00")
+
+    def test_sums_all_incomes_without_period(self, db: Session):
+        repo = FinancialTransactionRepository(db)
+        _create(repo, TransactionType.INCOME, "1000.50", date(2026, 9, 1))
+        _create(repo, TransactionType.INCOME, "300.00", date(2027, 1, 1))
+
+        assert repo.sum_amount(TransactionType.INCOME) == Decimal("1300.50")
+
+    def test_returns_zero_when_empty(self, db: Session):
+        repo = FinancialTransactionRepository(db)
+
+        assert repo.sum_amount(TransactionType.INCOME) == Decimal("0.00")

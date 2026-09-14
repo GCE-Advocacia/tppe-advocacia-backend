@@ -66,3 +66,19 @@ class FinancialTransactionRepository:
             ).all()
         )
         return items, total
+
+    def sum_amount(
+        self,
+        type_: TransactionType,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> Decimal:
+        stmt = self._apply_period(
+            select(func.coalesce(func.sum(FinancialTransaction.amount), 0)).where(
+                FinancialTransaction.type == type_
+            ),
+            date_from,
+            date_to,
+        )
+        total = self.db.scalar(stmt)
+        return Decimal(str(total)).quantize(Decimal("0.01"))

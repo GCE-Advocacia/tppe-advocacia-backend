@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from app.modules.finance.model import FinancialTransaction, TransactionType
 from app.modules.finance.repository import FinancialTransactionRepository
@@ -34,6 +35,14 @@ class FinanceService:
         self._validate_period(date_from, date_to)
         return self.repository.list(
             date_from=date_from, date_to=date_to, page=page, limit=limit
+        )
+
+    def get_total_income(
+        self, date_from: date | None = None, date_to: date | None = None
+    ) -> Decimal:
+        self._validate_period(date_from, date_to)
+        return self.repository.sum_amount(
+            TransactionType.INCOME, date_from=date_from, date_to=date_to
         )
 
     @staticmethod
