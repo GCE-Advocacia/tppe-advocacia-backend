@@ -53,3 +53,19 @@ class TestCreateIncome:
         service.create_income(make_payload(), admin)
 
         repo.db.commit.assert_called_once()
+
+
+class TestCreateExpense:
+    def test_creates_transaction_with_expense_type(self, service, repo, admin):
+        created = SimpleNamespace(id=2)
+        repo.create.return_value = created
+
+        result = service.create_expense(
+            make_payload(description="Aluguel", amount=Decimal("3200.00")), admin
+        )
+
+        assert result is created
+        kwargs = repo.create.call_args.kwargs
+        assert kwargs["type_"] == TransactionType.EXPENSE
+        assert kwargs["amount"] == Decimal("3200.00")
+        assert kwargs["created_by"] == 7

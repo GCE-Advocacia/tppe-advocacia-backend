@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.modules.finance.model import FinancialTransaction
 
 INCOMES_URL = "/api/v1/finance/incomes"
+EXPENSES_URL = "/api/v1/finance/expenses"
 
 
 @pytest.fixture
@@ -59,3 +60,33 @@ class TestCreateIncome:
 
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+class TestCreateExpense:
+    def test_user_forbidden(self, client, user_headers):
+        response = client.post(
+            EXPENSES_URL, json=transaction_payload(), headers=user_headers
+        )
+        assert response.status_code == 403
+
+    def test_admin_creates_expense(self, client, admin_headers, cleanup_transactions):
+        response = client.post(
+            EXPENSES_URL,
+            json=transaction_payload(description="Aluguel", amount="3200.00"),
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 201
+        data = response.json()["data"]
+        cleanup_transactions.append(data["id"])
+        assert data["type"] == "EXPENSE"
+        assert data["amount"] == "3200.00"
+
+    def test_rejects_negative_amount(self, client, admin_headers):
+        response = client.post(
+            EXPENSES_URL,
+            json=transaction_payload(amount="-50.00"),
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 422

@@ -3143,3 +3143,45 @@ Registra uma entrada financeira.
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                                |
 | 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                                                    |
 | 422    | `VALIDATION_ERROR` | `description` vazia, `amount` ≤ 0 ou com mais de 2 casas, data inválida  |
+
+---
+
+### `POST /api/v1/finance/expenses`
+
+Registra uma saída financeira. Mesmo body e mesmas validações de `POST /api/v1/finance/incomes`.
+
+**Body**
+
+```json
+{
+  "description": "Aluguel do escritório",
+  "amount": "3200.00",
+  "transaction_date": "2026-09-05"
+}
+```
+
+**Resposta 201**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 2,
+    "type": "EXPENSE",
+    "description": "Aluguel do escritório",
+    "amount": "3200.00",
+    "transaction_date": "2026-09-05",
+    "created_by": 3,
+    "created_at": "2026-09-13T12:00:00Z",
+    "updated_at": "2026-09-13T12:00:00Z"
+  }
+}
+```
+
+**Erros**
+
+| Status | Code               | Situação                                                                 |
+| ------ | ------------------ | ------------------------------------------------------------------------ |
+| 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                                |
+| 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                                                    |
+| 422    | `VALIDATION_ERROR` | `description` vazia, `amount` ≤ 0 ou com mais de 2 casas, data inválida  |

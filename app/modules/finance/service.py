@@ -16,6 +16,11 @@ class FinanceService:
     ) -> FinancialTransaction:
         return self._create(TransactionType.INCOME, payload, current_user)
 
+    def create_expense(
+        self, payload: FinancialTransactionCreate, current_user: User
+    ) -> FinancialTransaction:
+        return self._create(TransactionType.EXPENSE, payload, current_user)
+
     def _create(
         self,
         type_: TransactionType,
