@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
+
 from app.modules.finance.model import FinancialTransaction, TransactionType
 from app.modules.finance.repository import FinancialTransactionRepository
 from app.modules.finance.schema import FinancialTransactionCreate
 from app.modules.users.model import User
 from app.shared.db.uow import unit_of_work
+from app.shared.exceptions import InvalidFinancialPeriodError
 
 
 class FinanceService:
@@ -22,9 +25,21 @@ class FinanceService:
         return self._create(TransactionType.EXPENSE, payload, current_user)
 
     def list_transactions(
-        self, page: int, limit: int
+        self,
+        page: int,
+        limit: int,
+        date_from: date | None = None,
+        date_to: date | None = None,
     ) -> tuple[list[FinancialTransaction], int]:
-        return self.repository.list(page=page, limit=limit)
+        self._validate_period(date_from, date_to)
+        return self.repository.list(
+            date_from=date_from, date_to=date_to, page=page, limit=limit
+        )
+
+    @staticmethod
+    def _validate_period(date_from: date | None, date_to: date | None) -> None:
+        if date_from is not None and date_to is not None and date_from > date_to:
+            raise InvalidFinancialPeriodError()
 
     def _create(
         self,

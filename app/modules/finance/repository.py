@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.finance.model import FinancialTransaction, TransactionType
@@ -35,10 +35,24 @@ class FinancialTransactionRepository:
         self.db.flush()
         return transaction
 
+    @staticmethod
+    def _apply_period(
+        stmt: Select, date_from: date | None, date_to: date | None
+    ) -> Select:
+        if date_from is not None:
+            stmt = stmt.where(FinancialTransaction.transaction_date >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(FinancialTransaction.transaction_date <= date_to)
+        return stmt
+
     def list(
-        self, page: int = 1, limit: int = 20
+        self,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        page: int = 1,
+        limit: int = 20,
     ) -> tuple[list[FinancialTransaction], int]:
-        base = select(FinancialTransaction)
+        base = self._apply_period(select(FinancialTransaction), date_from, date_to)
 
         total = self.db.scalar(select(func.count()).select_from(base.subquery())) or 0
         items = list(

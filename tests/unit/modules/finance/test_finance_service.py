@@ -8,6 +8,7 @@ import pytest
 from app.modules.finance.model import TransactionType
 from app.modules.finance.schema import FinancialTransactionCreate
 from app.modules.finance.service import FinanceService
+from app.shared.exceptions import InvalidFinancialPeriodError
 
 
 def make_payload(**kwargs) -> FinancialTransactionCreate:
@@ -81,3 +82,33 @@ class TestListTransactions:
         kwargs = repo.list.call_args.kwargs
         assert kwargs["page"] == 2
         assert kwargs["limit"] == 10
+
+
+class TestListTransactionsByPeriod:
+    def test_passes_period_to_repository(self, service, repo):
+        repo.list.return_value = ([], 0)
+
+        service.list_transactions(
+            page=1, limit=20, date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)
+        )
+
+        kwargs = repo.list.call_args.kwargs
+        assert kwargs["date_from"] == date(2026, 9, 1)
+        assert kwargs["date_to"] == date(2026, 9, 30)
+
+    def test_raises_when_date_from_after_date_to(self, service, repo):
+        with pytest.raises(InvalidFinancialPeriodError):
+            service.list_transactions(
+                page=1, limit=20, date_from=date(2026, 9, 30), date_to=date(2026, 9, 1)
+            )
+
+        repo.list.assert_not_called()
+
+    def test_accepts_single_day_period(self, service, repo):
+        repo.list.return_value = ([], 0)
+
+        service.list_transactions(
+            page=1, limit=20, date_from=date(2026, 9, 1), date_to=date(2026, 9, 1)
+        )
+
+        repo.list.assert_called_once()

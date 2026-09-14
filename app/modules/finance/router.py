@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query, status
 
 from app.modules.finance.deps import get_finance_service
@@ -54,16 +56,20 @@ def create_expense(
 @router.get(
     "/transactions",
     response_model=PaginatedResponse[FinancialTransactionRead],
-    responses=error_responses(401, 403),
-    summary="Lista entradas e saídas financeiras (admin)",
+    responses=error_responses(401, 403, 422),
+    summary="Lista entradas e saídas financeiras, com filtro por período (admin)",
 )
 def list_transactions(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: FinanceService = Depends(get_finance_service),
     _: User = Depends(require_admin),
 ) -> PaginatedResponse[FinancialTransactionRead]:
-    items, total = service.list_transactions(page=page, limit=limit)
+    items, total = service.list_transactions(
+        page=page, limit=limit, date_from=date_from, date_to=date_to
+    )
     return paginated(
         [FinancialTransactionRead.model_validate(t) for t in items],
         total=total,

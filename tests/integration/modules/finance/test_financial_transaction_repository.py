@@ -60,3 +60,29 @@ class TestList:
 
         assert total == 3
         assert len(items) == 1
+
+
+class TestListByPeriod:
+    def test_includes_both_boundaries(self, db: Session):
+        repo = FinancialTransactionRepository(db)
+        before = _create(repo, TransactionType.INCOME, "10.00", date(2026, 8, 31))
+        first_day = _create(repo, TransactionType.INCOME, "20.00", date(2026, 9, 1))
+        last_day = _create(repo, TransactionType.EXPENSE, "30.00", date(2026, 9, 30))
+        after = _create(repo, TransactionType.EXPENSE, "40.00", date(2026, 10, 1))
+
+        items, total = repo.list(date_from=date(2026, 9, 1), date_to=date(2026, 9, 30))
+
+        ids = {t.id for t in items}
+        assert total == 2
+        assert ids == {first_day.id, last_day.id}
+        assert before.id not in ids and after.id not in ids
+
+    def test_only_date_from(self, db: Session):
+        repo = FinancialTransactionRepository(db)
+        _create(repo, TransactionType.INCOME, "10.00", date(2026, 8, 31))
+        kept = _create(repo, TransactionType.INCOME, "20.00", date(2026, 9, 1))
+
+        items, total = repo.list(date_from=date(2026, 9, 1))
+
+        assert total == 1
+        assert items[0].id == kept.id

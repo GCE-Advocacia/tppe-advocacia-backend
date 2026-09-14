@@ -121,3 +121,37 @@ class TestListTransactions:
         assert income["id"] in ids
         assert expense["id"] in ids
         assert body["meta"]["page"] == 1
+
+
+class TestListTransactionsByPeriod:
+    def test_filters_by_period(self, client, admin_headers, cleanup_transactions):
+        january = client.post(
+            INCOMES_URL,
+            json=transaction_payload(transaction_date="2098-01-10"),
+            headers=admin_headers,
+        ).json()["data"]
+        february = client.post(
+            EXPENSES_URL,
+            json=transaction_payload(transaction_date="2098-02-10"),
+            headers=admin_headers,
+        ).json()["data"]
+        cleanup_transactions.extend([january["id"], february["id"]])
+
+        response = client.get(
+            f"{TRANSACTIONS_URL}?date_from=2098-02-01&date_to=2098-02-28&limit=100",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        ids = [t["id"] for t in response.json()["data"]]
+        assert february["id"] in ids
+        assert january["id"] not in ids
+
+    def test_rejects_inverted_period(self, client, admin_headers):
+        response = client.get(
+            f"{TRANSACTIONS_URL}?date_from=2098-02-28&date_to=2098-02-01",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "INVALID_FINANCIAL_PERIOD"

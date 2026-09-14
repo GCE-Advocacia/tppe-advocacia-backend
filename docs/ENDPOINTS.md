@@ -3190,14 +3190,16 @@ Registra uma saída financeira. Mesmo body e mesmas validações de `POST /api/v
 
 ### `GET /api/v1/finance/transactions`
 
-Lista entradas e saídas com paginação, ordenadas por `transaction_date DESC, id DESC`. Alimenta a tela de controle financeiro.
+Lista entradas e saídas com paginação e filtro opcional por período, ordenadas por `transaction_date DESC, id DESC`. Alimenta a tela de controle financeiro.
 
 **Query params**
 
-| Parâmetro | Tipo              | Obrigatório | Descrição                        |
-| --------- | ----------------- | ----------- | -------------------------------- |
-| `page`    | `integer` (≥ 1)   | Não         | Página atual (default: `1`)      |
-| `limit`   | `integer` (1–100) | Não         | Itens por página (default: `20`) |
+| Parâmetro   | Tipo                  | Obrigatório | Descrição                                           |
+| ----------- | --------------------- | ----------- | --------------------------------------------------- |
+| `date_from` | `date` (`YYYY-MM-DD`) | Não         | Limite inferior (inclusive) para `transaction_date` |
+| `date_to`   | `date` (`YYYY-MM-DD`) | Não         | Limite superior (inclusive) para `transaction_date` |
+| `page`      | `integer` (≥ 1)       | Não         | Página atual (default: `1`)                         |
+| `limit`     | `integer` (1–100)     | Não         | Itens por página (default: `20`)                    |
 
 **Resposta 200**
 
@@ -3222,7 +3224,9 @@ Lista entradas e saídas com paginação, ordenadas por `transaction_date DESC, 
 
 **Erros**
 
-| Status | Code           | Situação                  |
-| ------ | -------------- | ------------------------- |
-| 401    | `UNAUTHORIZED` | Token ausente ou inválido |
-| 403    | `FORBIDDEN`    | Usuário não é `ADMIN`     |
+| Status | Code                       | Situação                          |
+| ------ | -------------------------- | --------------------------------- |
+| 401    | `UNAUTHORIZED`             | Token ausente ou inválido         |
+| 403    | `FORBIDDEN`                | Usuário não é `ADMIN`             |
+| 422    | `INVALID_FINANCIAL_PERIOD` | `date_from` posterior a `date_to` |
+| 422    | `VALIDATION_ERROR`         | Data em formato inválido          |
