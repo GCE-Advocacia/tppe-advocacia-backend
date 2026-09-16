@@ -44,6 +44,10 @@ def make_config(**kwargs) -> OfficeConfig:
         "color_buttons": None,
         "color_title_primary": None,
         "color_title_secondary": None,
+        "color_text_primary": None,
+        "color_text_secondary": None,
+        "color_link_primary": None,
+        "color_link_secondary": None,
     }
     defaults.update(kwargs)
     config = MagicMock(spec=OfficeConfig)
@@ -171,6 +175,10 @@ class TestUpdate:
             "color_buttons": "#444444",
             "color_title_primary": "#555555",
             "color_title_secondary": "#666666",
+            "color_text_primary": "#777777",
+            "color_text_secondary": "#888888",
+            "color_link_primary": "#999999",
+            "color_link_secondary": "#aaaaaa",
         }
         repo.update_config.return_value = make_config(**colors_payload)
         service.update(OfficeConfigUpdate(**colors_payload))

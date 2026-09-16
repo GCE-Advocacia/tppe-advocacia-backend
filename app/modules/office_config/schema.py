@@ -48,6 +48,10 @@ class OfficeConfigUpdate(BaseModel):
     color_buttons: str | None = Field(None, max_length=50)
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
+    color_text_primary: str | None = Field(None, max_length=50)
+    color_text_secondary: str | None = Field(None, max_length=50)
+    color_link_primary: str | None = Field(None, max_length=50)
+    color_link_secondary: str | None = Field(None, max_length=50)
 
 
 class OfficeConfigRead(BaseModel):
@@ -89,6 +93,10 @@ class OfficeConfigRead(BaseModel):
     color_buttons: str | None = None
     color_title_primary: str | None = None
     color_title_secondary: str | None = None
+    color_text_primary: str | None = None
+    color_text_secondary: str | None = None
+    color_link_primary: str | None = None
+    color_link_secondary: str | None = None
 
     @field_validator("differentials", "areas_of_practice", mode="before")
     @classmethod

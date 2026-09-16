@@ -68,6 +68,10 @@ class TestGetOfficeConfig:
             "color_buttons",
             "color_title_primary",
             "color_title_secondary",
+            "color_text_primary",
+            "color_text_secondary",
+            "color_link_primary",
+            "color_link_secondary",
         ]
         for field in expected_fields:
             assert field in data, f"Missing field: {field}"
@@ -260,6 +264,10 @@ class TestPatchOfficeConfig:
             "color_buttons": "#E63946",
             "color_title_primary": "#F1FAEE",
             "color_title_secondary": "#1D3557",
+            "color_text_primary": "#F1F1F1",
+            "color_text_secondary": "#6B7280",
+            "color_link_primary": "#FFFFFF",
+            "color_link_secondary": "#661C16",
         }
         response = client.patch(
             OFFICE_CONFIG_URL,

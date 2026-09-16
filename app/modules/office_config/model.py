@@ -45,6 +45,10 @@ class OfficeConfig(Base):
     color_buttons: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_text_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_text_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_link_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_link_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # TODO: add updated_by field to track which user last updated
     # TODO: add updated_at field to track which user last updated

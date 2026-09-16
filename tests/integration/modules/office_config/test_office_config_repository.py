@@ -32,6 +32,10 @@ class TestGetConfig:
         assert config.color_buttons is None
         assert config.color_title_primary is None
         assert config.color_title_secondary is None
+        assert config.color_text_primary is None
+        assert config.color_text_secondary is None
+        assert config.color_link_primary is None
+        assert config.color_link_secondary is None
 
     def test_list_fields_are_empty_by_default(self, db):
         config = OfficeConfigRepository(db).get_config()
@@ -121,6 +125,10 @@ class TestUpdateConfig:
             "color_buttons": "#444444",
             "color_title_primary": "#555555",
             "color_title_secondary": "#666666",
+            "color_text_primary": "#777777",
+            "color_text_secondary": "#888888",
+            "color_link_primary": "#999999",
+            "color_link_secondary": "#aaaaaa",
         }
         result = OfficeConfigRepository(db).update_config(colors)
         assert result.color_bg_primary == "#111111"
@@ -129,3 +137,7 @@ class TestUpdateConfig:
         assert result.color_buttons == "#444444"
         assert result.color_title_primary == "#555555"
         assert result.color_title_secondary == "#666666"
+        assert result.color_text_primary == "#777777"
+        assert result.color_text_secondary == "#888888"
+        assert result.color_link_primary == "#999999"
+        assert result.color_link_secondary == "#aaaaaa"
