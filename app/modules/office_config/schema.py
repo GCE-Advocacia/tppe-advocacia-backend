@@ -46,6 +46,8 @@ class OfficeConfigUpdate(BaseModel):
     color_bg_secondary: str | None = Field(None, max_length=50)
     color_bg_sobre: str | None = Field(None, max_length=50)
     color_buttons: str | None = Field(None, max_length=50)
+    color_buttons_hover: str | None = Field(None, max_length=50)
+    color_buttons_text: str | None = Field(None, max_length=50)
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
@@ -91,6 +93,8 @@ class OfficeConfigRead(BaseModel):
     color_bg_secondary: str | None = None
     color_bg_sobre: str | None = None
     color_buttons: str | None = None
+    color_buttons_hover: str | None = None
+    color_buttons_text: str | None = None
     color_title_primary: str | None = None
     color_title_secondary: str | None = None
     color_text_primary: str | None = None

@@ -30,6 +30,8 @@ class TestGetConfig:
         assert config.color_bg_secondary is None
         assert config.color_bg_sobre is None
         assert config.color_buttons is None
+        assert config.color_buttons_hover is None
+        assert config.color_buttons_text is None
         assert config.color_title_primary is None
         assert config.color_title_secondary is None
         assert config.color_text_primary is None
@@ -123,6 +125,8 @@ class TestUpdateConfig:
             "color_bg_secondary": "#222222",
             "color_bg_sobre": "#333333",
             "color_buttons": "#444444",
+            "color_buttons_hover": "#445566",
+            "color_buttons_text": "#ffffff",
             "color_title_primary": "#555555",
             "color_title_secondary": "#666666",
             "color_text_primary": "#777777",
@@ -135,6 +139,8 @@ class TestUpdateConfig:
         assert result.color_bg_secondary == "#222222"
         assert result.color_bg_sobre == "#333333"
         assert result.color_buttons == "#444444"
+        assert result.color_buttons_hover == "#445566"
+        assert result.color_buttons_text == "#ffffff"
         assert result.color_title_primary == "#555555"
         assert result.color_title_secondary == "#666666"
         assert result.color_text_primary == "#777777"

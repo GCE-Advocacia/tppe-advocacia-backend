@@ -43,6 +43,8 @@ class OfficeConfig(Base):
     color_bg_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_bg_sobre: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_buttons: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_text_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
