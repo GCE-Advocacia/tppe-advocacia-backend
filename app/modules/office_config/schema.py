@@ -41,6 +41,20 @@ class OfficeConfigUpdate(BaseModel):
     differentials: _ListField | None = None
     areas_of_practice: _ListField | None = None
 
+    color: str | None = Field(None, max_length=50)
+    color_bg_primary: str | None = Field(None, max_length=50)
+    color_bg_secondary: str | None = Field(None, max_length=50)
+    color_bg_sobre: str | None = Field(None, max_length=50)
+    color_buttons: str | None = Field(None, max_length=50)
+    color_buttons_hover: str | None = Field(None, max_length=50)
+    color_buttons_text: str | None = Field(None, max_length=50)
+    color_title_primary: str | None = Field(None, max_length=50)
+    color_title_secondary: str | None = Field(None, max_length=50)
+    color_text_primary: str | None = Field(None, max_length=50)
+    color_text_secondary: str | None = Field(None, max_length=50)
+    color_link_primary: str | None = Field(None, max_length=50)
+    color_link_secondary: str | None = Field(None, max_length=50)
+
 
 class OfficeConfigRead(BaseModel):
     id: int
@@ -73,6 +87,20 @@ class OfficeConfigRead(BaseModel):
 
     differentials: list[ListItem] = []
     areas_of_practice: list[ListItem] = []
+
+    color: str | None = None
+    color_bg_primary: str | None = None
+    color_bg_secondary: str | None = None
+    color_bg_sobre: str | None = None
+    color_buttons: str | None = None
+    color_buttons_hover: str | None = None
+    color_buttons_text: str | None = None
+    color_title_primary: str | None = None
+    color_title_secondary: str | None = None
+    color_text_primary: str | None = None
+    color_text_secondary: str | None = None
+    color_link_primary: str | None = None
+    color_link_secondary: str | None = None
 
     @field_validator("differentials", "areas_of_practice", mode="before")
     @classmethod

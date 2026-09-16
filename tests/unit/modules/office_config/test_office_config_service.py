@@ -37,6 +37,19 @@ def make_config(**kwargs) -> OfficeConfig:
         "hero_image_position": None,
         "about_image_position": None,
         "lawyer_image_position": None,
+        "color": None,
+        "color_bg_primary": None,
+        "color_bg_secondary": None,
+        "color_bg_sobre": None,
+        "color_buttons": None,
+        "color_buttons_hover": None,
+        "color_buttons_text": None,
+        "color_title_primary": None,
+        "color_title_secondary": None,
+        "color_text_primary": None,
+        "color_text_secondary": None,
+        "color_link_primary": None,
+        "color_link_secondary": None,
     }
     defaults.update(kwargs)
     config = MagicMock(spec=OfficeConfig)
@@ -150,3 +163,27 @@ class TestUpdate:
                 "lawyer_image_position": "80,20",
             }
         )
+
+    def test_can_update_color(self, service, repo):
+        repo.update_config.return_value = make_config(color="#1E3A8A")
+        service.update(OfficeConfigUpdate(color="#1E3A8A"))
+        repo.update_config.assert_called_once_with({"color": "#1E3A8A"})
+
+    def test_can_update_landing_page_colors(self, service, repo):
+        colors_payload = {
+            "color_bg_primary": "#111111",
+            "color_bg_secondary": "#222222",
+            "color_bg_sobre": "#333333",
+            "color_buttons": "#444444",
+            "color_buttons_hover": "#445566",
+            "color_buttons_text": "#ffffff",
+            "color_title_primary": "#555555",
+            "color_title_secondary": "#666666",
+            "color_text_primary": "#777777",
+            "color_text_secondary": "#888888",
+            "color_link_primary": "#999999",
+            "color_link_secondary": "#aaaaaa",
+        }
+        repo.update_config.return_value = make_config(**colors_payload)
+        service.update(OfficeConfigUpdate(**colors_payload))
+        repo.update_config.assert_called_once_with(colors_payload)
