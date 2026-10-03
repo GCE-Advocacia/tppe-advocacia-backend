@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
@@ -106,5 +107,67 @@ class OfficeConfigRead(BaseModel):
     @classmethod
     def coerce_none_to_list(cls, v: list | None) -> list:
         return v if v is not None else []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=255)
+    color: str = Field(default="#232C43", max_length=50)
+    color_bg_primary: str = Field(max_length=50)
+    color_bg_secondary: str = Field(max_length=50)
+    color_bg_sobre: str = Field(max_length=50)
+    color_buttons: str = Field(max_length=50)
+    color_buttons_hover: str = Field(max_length=50)
+    color_buttons_text: str = Field(max_length=50)
+    color_title_primary: str = Field(max_length=50)
+    color_title_secondary: str = Field(max_length=50)
+    color_text_primary: str = Field(max_length=50)
+    color_text_secondary: str = Field(max_length=50)
+    color_link_primary: str = Field(max_length=50)
+    color_link_secondary: str = Field(max_length=50)
+
+
+class ThemeUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=255)
+    color: str | None = Field(None, max_length=50)
+    color_bg_primary: str | None = Field(None, max_length=50)
+    color_bg_secondary: str | None = Field(None, max_length=50)
+    color_bg_sobre: str | None = Field(None, max_length=50)
+    color_buttons: str | None = Field(None, max_length=50)
+    color_buttons_hover: str | None = Field(None, max_length=50)
+    color_buttons_text: str | None = Field(None, max_length=50)
+    color_title_primary: str | None = Field(None, max_length=50)
+    color_title_secondary: str | None = Field(None, max_length=50)
+    color_text_primary: str | None = Field(None, max_length=50)
+    color_text_secondary: str | None = Field(None, max_length=50)
+    color_link_primary: str | None = Field(None, max_length=50)
+    color_link_secondary: str | None = Field(None, max_length=50)
+
+
+class ThemeRead(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    is_predefined: bool
+
+    color: str
+    color_bg_primary: str
+    color_bg_secondary: str
+    color_bg_sobre: str
+    color_buttons: str
+    color_buttons_hover: str
+    color_buttons_text: str
+    color_title_primary: str
+    color_title_secondary: str
+    color_text_primary: str
+    color_text_secondary: str
+    color_link_primary: str
+    color_link_secondary: str
+
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

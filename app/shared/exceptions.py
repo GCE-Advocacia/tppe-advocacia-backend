@@ -356,3 +356,30 @@ class InvalidFinancialPeriodError(AppException):
             "INVALID_FINANCIAL_PERIOD",
             "date_from must be less than or equal to date_to",
         )
+
+
+class ThemeNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "THEME_NOT_FOUND",
+            "Tema não encontrado",
+        )
+
+
+class ThemeLimitExceededError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_400_BAD_REQUEST,
+            "THEME_LIMIT_EXCEEDED",
+            "Limite máximo de 10 temas atingido (4 pré-definidos e até 6 personalizados). Exclua um tema personalizado antes de criar outro.",
+        )
+
+
+class PredefinedThemeCannotBeDeletedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_400_BAD_REQUEST,
+            "PREDEFINED_THEME_DELETE_NOT_ALLOWED",
+            "Temas pré-definidos do sistema não podem ser excluídos.",
+        )
