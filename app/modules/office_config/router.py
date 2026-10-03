@@ -8,6 +8,7 @@ from app.modules.office_config.schema import (
     OfficeConfigRead,
     OfficeConfigUpdate,
     ThemeCreate,
+    ThemeQuotaRead,
     ThemeRead,
     ThemeUpdate,
 )
@@ -54,6 +55,18 @@ def list_themes(
 ) -> SuccessResponse[list[ThemeRead]]:
     themes = service.list()
     return ok([ThemeRead.model_validate(t) for t in themes])
+
+
+@router.get(
+    "/themes/quota",
+    response_model=SuccessResponse[ThemeQuotaRead],
+    summary="Retorna a cota e limites de temas da landing page",
+)
+def get_theme_quota(
+    service: ThemeService = Depends(get_theme_service),
+) -> SuccessResponse[ThemeQuotaRead]:
+    quota = service.get_quota()
+    return ok(ThemeQuotaRead.model_validate(quota))
 
 
 @router.post(

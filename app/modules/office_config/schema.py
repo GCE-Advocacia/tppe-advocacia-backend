@@ -55,6 +55,7 @@ class OfficeConfigUpdate(BaseModel):
     color_text_secondary: str | None = Field(None, max_length=50)
     color_link_primary: str | None = Field(None, max_length=50)
     color_link_secondary: str | None = Field(None, max_length=50)
+    theme_id: int | None = None
 
 
 class OfficeConfigRead(BaseModel):
@@ -102,6 +103,7 @@ class OfficeConfigRead(BaseModel):
     color_text_secondary: str | None = None
     color_link_primary: str | None = None
     color_link_secondary: str | None = None
+    theme_id: int | None = None
 
     @field_validator("differentials", "areas_of_practice", mode="before")
     @classmethod
@@ -171,3 +173,11 @@ class ThemeRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeQuotaRead(BaseModel):
+    max_total: int
+    max_custom: int
+    total_count: int
+    custom_count: int
+    is_limit_reached: bool

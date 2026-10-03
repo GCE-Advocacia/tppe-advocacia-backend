@@ -368,11 +368,23 @@ class ThemeNotFoundError(AppException):
 
 
 class ThemeLimitExceededError(AppException):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        max_total: int | None = None,
+        max_custom: int | None = None,
+    ) -> None:
+        from app.modules.office_config.service import (
+            MAX_CUSTOM_THEMES,
+            MAX_TOTAL_THEMES,
+        )
+
+        total = max_total if max_total is not None else MAX_TOTAL_THEMES
+        custom = max_custom if max_custom is not None else MAX_CUSTOM_THEMES
+        predefined = total - custom
         super().__init__(
             status.HTTP_400_BAD_REQUEST,
             "THEME_LIMIT_EXCEEDED",
-            "Limite máximo de 10 temas atingido (4 pré-definidos e até 6 personalizados). Exclua um tema personalizado antes de criar outro.",
+            f"Limite máximo de {total} temas atingido ({predefined} pré-definidos e até {custom} personalizados). Exclua um tema personalizado antes de criar outro.",
         )
 
 

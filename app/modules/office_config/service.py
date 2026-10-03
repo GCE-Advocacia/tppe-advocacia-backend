@@ -1,3 +1,6 @@
+MAX_TOTAL_THEMES = 9
+MAX_CUSTOM_THEMES = 6
+
 from app.modules.office_config.model import LandingPageTheme, OfficeConfig
 from app.modules.office_config.repository import OfficeConfigRepository, ThemeRepository
 from app.modules.office_config.schema import OfficeConfigUpdate, ThemeCreate, ThemeUpdate
@@ -7,9 +10,6 @@ from app.shared.exceptions import (
     ThemeLimitExceededError,
     ThemeNotFoundError,
 )
-
-MAX_TOTAL_THEMES = 10
-MAX_CUSTOM_THEMES = 6
 
 
 class OfficeConfigService:
@@ -36,6 +36,19 @@ class ThemeService:
 
     def list(self) -> list[LandingPageTheme]:
         return self.repository.list_themes()
+
+    def get_quota(self) -> dict:
+        total_count = self.repository.count_themes()
+        custom_count = self.repository.count_custom_themes()
+        return {
+            "max_total": MAX_TOTAL_THEMES,
+            "max_custom": MAX_CUSTOM_THEMES,
+            "total_count": total_count,
+            "custom_count": custom_count,
+            "is_limit_reached": (
+                custom_count >= MAX_CUSTOM_THEMES or total_count >= MAX_TOTAL_THEMES
+            ),
+        }
 
     def get_by_id(self, theme_id: int) -> LandingPageTheme:
         theme = self.repository.get_by_id(theme_id)

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.base_model import Base
@@ -53,6 +53,9 @@ class OfficeConfig(Base):
     color_text_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_link_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_link_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    theme_id: Mapped[int | None] = mapped_column(
+        ForeignKey("landing_page_themes.id", ondelete="SET NULL"), nullable=True
+    )
 
     # TODO: add updated_by field to track which user last updated
     # TODO: add updated_at field to track which user last updated

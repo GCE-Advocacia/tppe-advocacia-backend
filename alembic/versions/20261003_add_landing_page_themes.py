@@ -68,24 +68,6 @@ DEFAULT_THEMES = [
         "color_link_primary": "#FDE68A",
         "color_link_secondary": "#B45309",
     },
-    {
-        "name": "Grafite & Azul Cobalto",
-        "description": "Design moderno e contemporâneo com cinza ardósia e azul cobalto institucional.",
-        "is_predefined": True,
-        "color": "#1E293B",
-        "color_bg_primary": "#1E293B",
-        "color_bg_secondary": "#F1F5F9",
-        "color_bg_sobre": "#FFFFFF",
-        "color_buttons": "#2563EB",
-        "color_buttons_hover": "#1D4ED8",
-        "color_buttons_text": "#FFFFFF",
-        "color_title_primary": "#FFFFFF",
-        "color_title_secondary": "#0F172A",
-        "color_text_primary": "#E2E8F0",
-        "color_text_secondary": "#64748B",
-        "color_link_primary": "#60A5FA",
-        "color_link_secondary": "#2563EB",
-    },
 ]
 
 
