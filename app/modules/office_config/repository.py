@@ -14,6 +14,15 @@ class OfficeConfigRepository:
     def get_config(self) -> OfficeConfig:
         return self.db.scalars(select(OfficeConfig).where(OfficeConfig.id == 1)).one()
 
+    def get_config_for_update(self) -> OfficeConfig:
+        # Serialize replacements so each request cleans up the logo it supersedes.
+        return self.db.scalars(
+            select(OfficeConfig)
+            .where(OfficeConfig.id == 1)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).one()
+
     def update_config(self, data: dict) -> OfficeConfig:
         config = self.get_config()
         for key, value in data.items():

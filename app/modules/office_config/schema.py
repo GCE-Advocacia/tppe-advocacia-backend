@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
@@ -12,6 +12,8 @@ _ListField = Annotated[list[ListItem], Field(max_length=50)]
 
 
 class OfficeConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     office_name: str | None = Field(None, max_length=255)
     cnpj: str | None = Field(None, max_length=18)
     address: str | None = Field(None, max_length=500)
@@ -60,6 +62,19 @@ class OfficeConfigRead(BaseModel):
     id: int
 
     office_name: str | None
+    logo_url: str | None = None
+    logo_dark_url: str | None = None
+    system_logo_url: str | None = None
+    system_logo_dark_url: str | None = None
+    favicon_url: str | None = None
+    default_logo_url: str | None = None
+    default_logo_dark_url: str | None = None
+    default_system_logo_url: str | None = None
+    default_system_logo_dark_url: str | None = None
+    default_favicon_url: str | None = None
+    logo_same_for_themes: bool = True
+    system_logo_same_for_themes: bool = True
+    system_uses_landing_logo: bool = True
     cnpj: str | None
     address: str | None
     phone: str | None
@@ -108,3 +123,16 @@ class OfficeConfigRead(BaseModel):
         return v if v is not None else []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+LogoSlot = Literal[
+    "landing-light", "landing-dark", "system-light", "system-dark", "favicon"
+]
+
+
+class LogoSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    logo_same_for_themes: bool = True
+    system_logo_same_for_themes: bool = True
+    system_uses_landing_logo: bool = True
