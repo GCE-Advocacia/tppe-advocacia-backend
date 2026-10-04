@@ -46,7 +46,7 @@
 
     - name: Recriar containers em homologacao
       ansible.builtin.command:
-        cmd: docker compose up sheduler api -d --force-recreate --remove-orphans
+        cmd: docker compose up scheduler api -d --force-recreate --remove-orphans
         chdir: "{{ project_dir }}"
       environment:
         REGISTRY_IMAGE: "{{ registry_image }}"
