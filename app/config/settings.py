@@ -135,6 +135,13 @@ class Settings(BaseSettings):
             )
         return jwt_secret_key
 
+    @field_validator("datajud_sync_user_id", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("deadline_alert_intervals", mode="before")
     @classmethod
     def parse_intervals(cls, value: object) -> object:
