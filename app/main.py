@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -89,7 +90,7 @@ def _serialize_validation_errors(errors: list) -> list:
     for err in errors:
         if "ctx" in err and "error" in err["ctx"]:
             err = {**err, "ctx": {**err["ctx"], "error": str(err["ctx"]["error"])}}
-        result.append(err)
+        result.append(jsonable_encoder(err))
     return result
 
 

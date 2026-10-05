@@ -347,3 +347,12 @@ class GoogleNotConnectedError(AppException):
             "GOOGLE_NOT_CONNECTED",
             "User has not connected a Google Calendar account",
         )
+
+
+class InvalidFinancialPeriodError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "INVALID_FINANCIAL_PERIOD",
+            "date_from must be less than or equal to date_to",
+        )
