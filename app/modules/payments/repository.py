@@ -1,5 +1,7 @@
+from __future__ import annotations
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+
 
 from sqlalchemy import and_, delete, exists, select
 from sqlalchemy.orm import Session, joinedload

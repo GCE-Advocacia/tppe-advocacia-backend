@@ -195,7 +195,7 @@ class PaymentReminderService:
                 self.email_service.send(
                     to=email,
                     subject=subject,
-                    body=body
+                    html=body
                 )
                 status = ReminderStatus.SENT
                 error_msg = None
