@@ -200,6 +200,15 @@ class ProcessNoteNotFoundError(AppException):
         )
 
 
+class ProcessDocumentNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "PROCESS_DOCUMENT_NOT_FOUND",
+            "Process document not found",
+        )
+
+
 class ProcessStatusUnchangedError(AppException):
     def __init__(self) -> None:
         super().__init__(

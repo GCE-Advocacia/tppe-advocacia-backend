@@ -89,6 +89,21 @@ class Settings(BaseSettings):
         default=["image/jpeg", "image/png"],
         validation_alias="ALLOWED_MIME_TYPES",
     )
+    documents_upload_dir: str = Field(
+        "uploads/documents", validation_alias="DOCUMENTS_UPLOAD_DIR"
+    )
+    document_max_file_size_mb: int = Field(
+        20, validation_alias="DOCUMENT_MAX_FILE_SIZE_MB"
+    )
+    document_allowed_mime_types: list[str] = Field(
+        default=[
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ],
+        validation_alias="DOCUMENT_ALLOWED_MIME_TYPES",
+    )
 
     kanban_max_per_column: int = Field(100, validation_alias="KANBAN_MAX_PER_COLUMN")
 
