@@ -94,6 +94,7 @@ class ThemeService:
             raise ThemeNotFoundError()
 
         color_data = {
+            "theme_id": theme.id,
             "color": theme.color,
             "color_bg_primary": theme.color_bg_primary,
             "color_bg_secondary": theme.color_bg_secondary,

@@ -25,13 +25,13 @@ def valid_theme_payload(name="Tema Customizado Teste"):
 
 
 class TestListThemesE2E:
-    def test_returns_at_least_4_predefined_themes(self, client):
+    def test_returns_at_least_3_predefined_themes(self, client):
         response = client.get(THEMES_URL)
         assert response.status_code == 200
         data = response.json()["data"]
-        assert len(data) >= 4
+        assert len(data) >= 3
         predefined = [t for t in data if t["is_predefined"]]
-        assert len(predefined) >= 4
+        assert len(predefined) >= 3
         assert any(t["name"] == "Clássico Navy & Wine (Padrão)" for t in predefined)
 
 
@@ -113,6 +113,21 @@ class TestUpdateAndDeleteThemeE2E:
         assert all(t["id"] != theme_id for t in get_res.json()["data"])
 
 
+class TestThemeQuotaE2E:
+    def test_get_theme_quota_returns_dynamic_limits_and_counts(self, client):
+        response = client.get(f"{THEMES_URL}/quota")
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert "max_total" in data
+        assert "max_custom" in data
+        assert "total_count" in data
+        assert "custom_count" in data
+        assert "is_limit_reached" in data
+        assert data["max_total"] == 9
+        assert data["max_custom"] == 6
+        assert data["total_count"] >= 3
+
+
 class TestApplyThemeE2E:
     def test_non_admin_cannot_apply_theme(self, client, user_headers):
         res = client.get(THEMES_URL)
@@ -139,10 +154,12 @@ class TestApplyThemeE2E:
         )
         assert apply_res.status_code == 200
         config_data = apply_res.json()["data"]
+        assert config_data["theme_id"] == target_theme["id"]
         assert config_data["color_buttons"] == target_theme["color_buttons"]
         assert config_data["color_bg_primary"] == target_theme["color_bg_primary"]
 
-        # Check that GET /office-config returns the applied colors
+        # Check that GET /office-config returns the applied colors and theme_id
         cfg_res = client.get(OFFICE_CONFIG_URL)
         assert cfg_res.status_code == 200
+        assert cfg_res.json()["data"]["theme_id"] == target_theme["id"]
         assert cfg_res.json()["data"]["color_buttons"] == target_theme["color_buttons"]

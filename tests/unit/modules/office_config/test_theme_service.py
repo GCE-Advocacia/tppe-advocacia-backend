@@ -192,6 +192,7 @@ class TestThemeApply:
         assert result == config_mock
         office_config_repo.update_config.assert_called_once_with(
             {
+                "theme_id": 1,
                 "color": "#111111",
                 "color_bg_primary": "#222222",
                 "color_bg_secondary": "#333333",
@@ -212,3 +213,29 @@ class TestThemeApply:
         repo.get_by_id.return_value = None
         with pytest.raises(ThemeNotFoundError):
             service.apply(999)
+
+
+class TestThemeQuota:
+    def test_get_quota_under_limit(self, service, repo):
+        repo.count_themes.return_value = 5
+        repo.count_custom_themes.return_value = 2
+
+        quota = service.get_quota()
+        assert quota["total_count"] == 5
+        assert quota["custom_count"] == 2
+        assert quota["is_limit_reached"] is False
+
+    def test_get_quota_custom_limit_reached(self, service, repo):
+        repo.count_themes.return_value = 8
+        repo.count_custom_themes.return_value = 6
+
+        quota = service.get_quota()
+        assert quota["is_limit_reached"] is True
+
+    def test_get_quota_total_limit_reached(self, service, repo):
+        repo.count_themes.return_value = 9
+        repo.count_custom_themes.return_value = 5
+
+        quota = service.get_quota()
+        assert quota["is_limit_reached"] is True
+
