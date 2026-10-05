@@ -205,6 +205,8 @@ Autentica um usuário com e-mail e senha e retorna um JWT de acesso.
 }
 ```
 
+O payload do JWT contém as claims `sub` (ID do usuário), `role`, `can_view_payments` (permissão de visualizar vencimentos, ver [Payments](#payments)) e `exp`. A claim serve apenas para a UI; o backend sempre reconsulta o usuário no banco a cada requisição.
+
 **Erros**
 
 | Status | Code                  | Situação                                           |
@@ -321,6 +323,7 @@ Lista usuários com filtros opcionais e paginação.
       "email": "ana@escritorio.com",
       "role": "ADMIN",
       "is_active": true,
+      "can_view_payments": false,
       "created_at": "2026-05-06T12:00:00Z",
       "updated_at": "2026-05-06T12:00:00Z"
     }
@@ -366,6 +369,7 @@ Cria um novo usuário com papel `USER`. O sistema gera uma senha temporária e a
     "email": "carlos@escritorio.com",
     "role": "USER",
     "is_active": true,
+    "can_view_payments": false,
     "created_at": "2026-05-06T12:00:00Z",
     "updated_at": "2026-05-06T12:00:00Z"
   }
@@ -398,6 +402,7 @@ Retorna os dados de um usuário específico.
     "email": "carlos@escritorio.com",
     "role": "USER",
     "is_active": true,
+    "can_view_payments": false,
     "created_at": "2026-05-06T12:00:00Z",
     "updated_at": "2026-05-06T12:00:00Z"
   }
@@ -417,7 +422,7 @@ Retorna os dados de um usuário específico.
 ### `PATCH /api/v1/users/{id}`
 
 Atualiza parcialmente os dados de um usuário. Todos os campos são opcionais.
-Usado também para **desativar** (`is_active: false`) e **alterar o papel** (`role`).
+Usado também para **desativar** (`is_active: false`), **alterar o papel** (`role`) e **conceder/revogar a visualização de vencimentos** (`can_view_payments`) para usuários `USER`. Alterações em `can_view_payments` geram log de auditoria `USER_UPDATED` e passam a valer na próxima requisição do usuário, sem novo login.
 
 **Body**
 
@@ -426,7 +431,8 @@ Usado também para **desativar** (`is_active: false`) e **alterar o papel** (`ro
   "name": "Carlos Souza Atualizado",
   "email": "novo@escritorio.com",
   "role": "ADMIN",
-  "is_active": false
+  "is_active": false,
+  "can_view_payments": true
 }
 ```
 
@@ -441,6 +447,7 @@ Usado também para **desativar** (`is_active: false`) e **alterar o papel** (`ro
     "email": "novo@escritorio.com",
     "role": "ADMIN",
     "is_active": false,
+    "can_view_payments": true,
     "created_at": "2026-05-06T12:00:00Z",
     "updated_at": "2026-05-06T13:00:00Z"
   }
@@ -3269,3 +3276,157 @@ Resumo financeiro. Soma as entradas e as saídas (no período, se informado) e c
 | 403    | `FORBIDDEN`                | Usuário não é `ADMIN`             |
 | 422    | `INVALID_FINANCIAL_PERIOD` | `date_from` posterior a `date_to` |
 | 422    | `VALIDATION_ERROR`         | Data em formato inválido          |
+
+---
+
+## Payments
+
+> `GET` exige role `ADMIN` **ou** usuário `USER` com `can_view_payments = true`. `POST/PATCH/DELETE` exigem role `ADMIN`.
+> Header obrigatório: `Authorization: Bearer <token>`
+
+Vencimentos (pagamentos previstos) dos clientes do escritório.
+
+- A permissão `can_view_payments` é concedida/revogada pelo ADMIN via `PATCH /api/v1/users/{id}` (default `false` para usuários novos e existentes)
+- A permissão é lida do banco a cada requisição: revogar bloqueia o acesso imediatamente, sem precisar de novo login
+- Diferente dos demais módulos, as respostas de sucesso **não** usam o envelope `success`/`data`: o recurso é retornado diretamente
+- `amount` é decimal opcional (≥ 0) com até 2 casas e é retornado como string (ex.: `"1500.00"`)
+
+**Permissões**
+
+| Perfil                                  | `GET /payments`, `GET /payments/{id}` | `POST`, `PATCH`, `DELETE` |
+| --------------------------------------- | ------------------------------------- | ------------------------- |
+| `ADMIN`                                 | Permitido                             | Permitido                 |
+| `USER` com `can_view_payments = true`   | Permitido (somente leitura)           | 403 `FORBIDDEN`           |
+| `USER` com `can_view_payments = false`  | 403 `FORBIDDEN`                       | 403 `FORBIDDEN`           |
+
+---
+
+### `POST /api/v1/payments`
+
+> Exige autenticação com role `ADMIN`.
+
+Cadastra um vencimento para um cliente.
+
+**Body**
+
+```json
+{
+  "client_id": 3,
+  "payment_date": "2026-10-10",
+  "amount": "1500.00",
+  "description": "Parcela de honorários"
+}
+```
+
+**Resposta 201**
+
+```json
+{
+  "id": 1,
+  "client_id": 3,
+  "payment_date": "2026-10-10",
+  "amount": "1500.00",
+  "description": "Parcela de honorários",
+  "created_by": 1,
+  "created_at": "2026-10-05T12:00:00Z",
+  "updated_at": "2026-10-05T12:00:00Z"
+}
+```
+
+**Erros**
+
+| Status | Code               | Situação                                     |
+| ------ | ------------------ | -------------------------------------------- |
+| 401    | `UNAUTHORIZED`     | Token ausente ou inválido                    |
+| 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                        |
+| 404    | —                  | Cliente não encontrado (`{"detail": "..."}`) |
+| 422    | `VALIDATION_ERROR` | Body inválido                                |
+
+---
+
+### `GET /api/v1/payments`
+
+> Exige role `ADMIN` ou `USER` com `can_view_payments = true`.
+
+Lista os vencimentos de clientes não anonimizados, ordenados por `payment_date` crescente.
+
+**Query params**
+
+| Parâmetro    | Tipo                  | Obrigatório | Descrição                                      |
+| ------------ | --------------------- | ----------- | ---------------------------------------------- |
+| `start_date` | `date` (`YYYY-MM-DD`) | Não         | Limite inferior (inclusive) para `payment_date` |
+| `end_date`   | `date` (`YYYY-MM-DD`) | Não         | Limite superior (inclusive) para `payment_date` |
+
+**Resposta 200**
+
+```json
+[
+  {
+    "id": 1,
+    "client_id": 3,
+    "payment_date": "2026-10-10",
+    "amount": "1500.00",
+    "description": "Parcela de honorários",
+    "created_by": 1,
+    "created_at": "2026-10-05T12:00:00Z",
+    "updated_at": "2026-10-05T12:00:00Z"
+  }
+]
+```
+
+**Erros**
+
+| Status | Code           | Situação                                                   |
+| ------ | -------------- | ---------------------------------------------------------- |
+| 400    | —              | `start_date` posterior a `end_date` (`{"detail": "..."}`)  |
+| 401    | `UNAUTHORIZED` | Token ausente ou inválido                                  |
+| 403    | `FORBIDDEN`    | Usuário `USER` sem `can_view_payments`                     |
+
+---
+
+### `GET /api/v1/payments/{payment_id}`
+
+> Exige role `ADMIN` ou `USER` com `can_view_payments = true`.
+
+Retorna um vencimento específico (mesmo formato do item de `GET /api/v1/payments`).
+
+**Erros**
+
+| Status | Code           | Situação                                       |
+| ------ | -------------- | ---------------------------------------------- |
+| 401    | `UNAUTHORIZED` | Token ausente ou inválido                      |
+| 403    | `FORBIDDEN`    | Usuário `USER` sem `can_view_payments`         |
+| 404    | —              | Vencimento não encontrado (`{"detail": "..."}`) |
+
+---
+
+### `PATCH /api/v1/payments/{payment_id}`
+
+> Exige autenticação com role `ADMIN`.
+
+Atualiza parcialmente um vencimento. Todos os campos do body de criação são opcionais. Retorna o vencimento atualizado (200).
+
+**Erros**
+
+| Status | Code               | Situação                                                   |
+| ------ | ------------------ | ---------------------------------------------------------- |
+| 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                  |
+| 403    | `FORBIDDEN`        | Usuário não é `ADMIN` (mesmo com `can_view_payments`)      |
+| 404    | —                  | Vencimento ou cliente não encontrado (`{"detail": "..."}`) |
+| 422    | `VALIDATION_ERROR` | Body inválido                                              |
+
+---
+
+### `DELETE /api/v1/payments/{payment_id}`
+
+> Exige autenticação com role `ADMIN`.
+
+Remove um vencimento. Resposta `204` sem corpo.
+
+**Erros**
+
+| Status | Code           | Situação                                              |
+| ------ | -------------- | ----------------------------------------------------- |
+| 401    | `UNAUTHORIZED` | Token ausente ou inválido                             |
+| 403    | `FORBIDDEN`    | Usuário não é `ADMIN` (mesmo com `can_view_payments`) |
+| 404    | —              | Vencimento não encontrado (`{"detail": "..."}`)       |

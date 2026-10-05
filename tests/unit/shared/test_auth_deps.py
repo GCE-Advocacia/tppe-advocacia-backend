@@ -4,7 +4,11 @@ import jwt
 import pytest
 
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user, require_admin
+from app.shared.deps.auth import (
+    get_current_user,
+    require_admin,
+    require_payments_view,
+)
 from app.shared.exceptions import ForbiddenError, UnauthorizedError
 from app.shared.types import Role
 
@@ -117,3 +121,23 @@ class TestRequireAdmin:
         result = require_admin(admin)
 
         assert result is admin
+
+
+class TestRequirePaymentsView:
+    def test_returns_user_when_role_is_admin(self):
+        admin = make_user(role=Role.ADMIN, can_view_payments=False)
+
+        result = require_payments_view(admin)
+
+        assert result is admin
+
+    def test_returns_user_when_user_has_permission(self):
+        user = make_user(role=Role.USER, can_view_payments=True)
+
+        result = require_payments_view(user)
+
+        assert result is user
+
+    def test_raises_when_user_lacks_permission(self):
+        with pytest.raises(ForbiddenError):
+            require_payments_view(make_user(role=Role.USER, can_view_payments=False))
