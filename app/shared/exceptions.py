@@ -88,6 +88,33 @@ class MediaNotFoundError(AppException):
         super().__init__(status.HTTP_404_NOT_FOUND, "MEDIA_NOT_FOUND", "File not found")
 
 
+class LogoNotConfiguredError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            422,
+            "LOGO_NOT_CONFIGURED",
+            "Selecione uma logo antes de defini-la como padrão.",
+        )
+
+
+class InvalidLogoImageError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "INVALID_LOGO_IMAGE",
+            "A logo deve ser uma imagem estática válida, com conteúdo visível.",
+        )
+
+
+class LogoDimensionsTooLargeError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "LOGO_DIMENSIONS_TOO_LARGE",
+            "A logo deve ter no máximo 20 milhões de pixels.",
+        )
+
+
 class ArticleNotFoundError(AppException):
     def __init__(self) -> None:
         super().__init__(

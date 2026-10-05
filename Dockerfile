@@ -5,6 +5,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+RUN apt-get update && apt-get install -y --no-install-recommends libcairo2 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd -m -u 1000 appuser
 
 COPY requirements.txt .

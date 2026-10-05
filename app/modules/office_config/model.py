@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text, func, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.base_model import Base
@@ -12,6 +10,31 @@ class OfficeConfig(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     office_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    system_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    system_logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    default_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    default_logo_dark_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    default_system_logo_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    default_system_logo_dark_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    default_favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_same_for_themes: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
+    system_logo_same_for_themes: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
+    system_uses_landing_logo: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
     cnpj: Mapped[str | None] = mapped_column(String(18), nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
