@@ -13,7 +13,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-O modo local precisa do Postgres disponível. O caminho mais simples é subir apenas o serviço `db` com `docker compose up -d db` antes de iniciar o `uvicorn`.
+O modo local precisa do Postgres disponível. O caminho mais simples é subir apenas o serviço `db` com `docker compose up -d db` antes de iniciar o `uvicorn`
 
 ## DataJud
 
