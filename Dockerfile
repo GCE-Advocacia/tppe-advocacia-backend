@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM ghcr.io/bessazs/docker-images/python:3.10-slim 
 
 WORKDIR /app
 
@@ -35,4 +35,4 @@ CMD ["gunicorn", "app.main:app", \
     "--access-logfile", "-", \
     "--error-logfile", "-", \
     "--log-level", "info"]
-
+                          
