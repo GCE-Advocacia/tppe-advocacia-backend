@@ -88,6 +88,33 @@ class MediaNotFoundError(AppException):
         super().__init__(status.HTTP_404_NOT_FOUND, "MEDIA_NOT_FOUND", "File not found")
 
 
+class LogoNotConfiguredError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            422,
+            "LOGO_NOT_CONFIGURED",
+            "Selecione uma logo antes de defini-la como padrão.",
+        )
+
+
+class InvalidLogoImageError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "INVALID_LOGO_IMAGE",
+            "A logo deve ser uma imagem estática válida, com conteúdo visível.",
+        )
+
+
+class LogoDimensionsTooLargeError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "LOGO_DIMENSIONS_TOO_LARGE",
+            "A logo deve ter no máximo 20 milhões de pixels.",
+        )
+
+
 class ArticleNotFoundError(AppException):
     def __init__(self) -> None:
         super().__init__(
@@ -197,6 +224,15 @@ class ProcessNoteNotFoundError(AppException):
             status.HTTP_404_NOT_FOUND,
             "PROCESS_NOTE_NOT_FOUND",
             "Process note not found",
+        )
+
+
+class ProcessDocumentNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "PROCESS_DOCUMENT_NOT_FOUND",
+            "Process document not found",
         )
 
 
@@ -355,4 +391,43 @@ class InvalidFinancialPeriodError(AppException):
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "INVALID_FINANCIAL_PERIOD",
             "date_from must be less than or equal to date_to",
+        )
+
+
+class ThemeNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "THEME_NOT_FOUND",
+            "Tema não encontrado",
+        )
+
+
+class ThemeLimitExceededError(AppException):
+    def __init__(
+        self,
+        max_total: int | None = None,
+        max_custom: int | None = None,
+    ) -> None:
+        from app.modules.office_config.service import (
+            MAX_CUSTOM_THEMES,
+            MAX_TOTAL_THEMES,
+        )
+
+        total = max_total if max_total is not None else MAX_TOTAL_THEMES
+        custom = max_custom if max_custom is not None else MAX_CUSTOM_THEMES
+        predefined = total - custom
+        super().__init__(
+            status.HTTP_400_BAD_REQUEST,
+            "THEME_LIMIT_EXCEEDED",
+            f"Limite máximo de {total} temas atingido ({predefined} pré-definidos e até {custom} personalizados). Exclua um tema personalizado antes de criar outro.",
+        )
+
+
+class PredefinedThemeCannotBeDeletedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_400_BAD_REQUEST,
+            "PREDEFINED_THEME_DELETE_NOT_ALLOWED",
+            "Temas pré-definidos do sistema não podem ser excluídos.",
         )

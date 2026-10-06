@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text, func, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.base_model import Base
@@ -10,6 +10,31 @@ class OfficeConfig(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     office_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    system_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    system_logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    default_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    default_logo_dark_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    default_system_logo_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    default_system_logo_dark_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    default_favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_same_for_themes: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
+    system_logo_same_for_themes: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
+    system_uses_landing_logo: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
     cnpj: Mapped[str | None] = mapped_column(String(18), nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -51,6 +76,37 @@ class OfficeConfig(Base):
     color_text_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_link_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_link_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    theme_id: Mapped[int | None] = mapped_column(
+        ForeignKey("landing_page_themes.id", ondelete="SET NULL"), nullable=True
+    )
 
     # TODO: add updated_by field to track which user last updated
     # TODO: add updated_at field to track which user last updated
+
+
+class LandingPageTheme(Base):
+    __tablename__ = "landing_page_themes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_predefined: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    color: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_bg_primary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_bg_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_bg_sobre: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_buttons: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_buttons_hover: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_buttons_text: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_title_primary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_title_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_text_primary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_text_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_link_primary: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_link_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

@@ -13,17 +13,19 @@ from app.modules.payments.schema import (
 )
 from app.modules.payments.service import PaymentService
 from app.modules.users.model import User
-from app.shared.deps.auth import require_admin
+from app.shared.deps.auth import require_admin, require_payments_view
 
 router = APIRouter(
     prefix="/payments",
     tags=["Payments"],
 )
 
+
 def get_payment_service(
     db: Session = Depends(get_db),
 ) -> PaymentService:
     return PaymentService(db)
+
 
 @router.post(
     "",
@@ -59,7 +61,7 @@ def list_payments(
         alias="status",
         description="Filtra por status do pagamento.",
     ),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_payments_view),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.list(
@@ -107,7 +109,7 @@ def list_reminders(
 )
 def get_payment(
     payment_id: int,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_payments_view),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.get_by_id(payment_id)

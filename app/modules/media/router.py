@@ -4,11 +4,21 @@ from fastapi.responses import FileResponse
 from app.modules.media.deps import get_media_service
 from app.modules.media.schema import MediaUploadResponse
 from app.modules.media.service import MediaService
+from app.modules.media.storage.logo import LogoStorage
 from app.modules.users.model import User
 from app.shared.deps.auth import get_current_user
 from app.shared.http.responses import SuccessResponse, error_responses, ok
 
 router = APIRouter(prefix="/media", tags=["Media"])
+
+
+@router.get(
+    "/logos/{filename}",
+    responses=error_responses(404),
+    summary="Serve uma logo otimizada",
+)
+def serve_logo(filename: str) -> FileResponse:
+    return FileResponse(LogoStorage().get_file_path(filename), media_type="image/png")
 
 
 @router.post(

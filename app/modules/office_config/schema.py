@@ -1,4 +1,5 @@
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
@@ -12,6 +13,8 @@ _ListField = Annotated[list[ListItem], Field(max_length=50)]
 
 
 class OfficeConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     office_name: str | None = Field(None, max_length=255)
     cnpj: str | None = Field(None, max_length=18)
     address: str | None = Field(None, max_length=500)
@@ -54,12 +57,26 @@ class OfficeConfigUpdate(BaseModel):
     color_text_secondary: str | None = Field(None, max_length=50)
     color_link_primary: str | None = Field(None, max_length=50)
     color_link_secondary: str | None = Field(None, max_length=50)
+    theme_id: int | None = None
 
 
 class OfficeConfigRead(BaseModel):
     id: int
 
     office_name: str | None
+    logo_url: str | None = None
+    logo_dark_url: str | None = None
+    system_logo_url: str | None = None
+    system_logo_dark_url: str | None = None
+    favicon_url: str | None = None
+    default_logo_url: str | None = None
+    default_logo_dark_url: str | None = None
+    default_system_logo_url: str | None = None
+    default_system_logo_dark_url: str | None = None
+    default_favicon_url: str | None = None
+    logo_same_for_themes: bool = True
+    system_logo_same_for_themes: bool = True
+    system_uses_landing_logo: bool = True
     cnpj: str | None
     address: str | None
     phone: str | None
@@ -101,6 +118,7 @@ class OfficeConfigRead(BaseModel):
     color_text_secondary: str | None = None
     color_link_primary: str | None = None
     color_link_secondary: str | None = None
+    theme_id: int | None = None
 
     @field_validator("differentials", "areas_of_practice", mode="before")
     @classmethod
@@ -108,3 +126,86 @@ class OfficeConfigRead(BaseModel):
         return v if v is not None else []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=255)
+    color: str = Field(default="#232C43", max_length=50)
+    color_bg_primary: str = Field(max_length=50)
+    color_bg_secondary: str = Field(max_length=50)
+    color_bg_sobre: str = Field(max_length=50)
+    color_buttons: str = Field(max_length=50)
+    color_buttons_hover: str = Field(max_length=50)
+    color_buttons_text: str = Field(max_length=50)
+    color_title_primary: str = Field(max_length=50)
+    color_title_secondary: str = Field(max_length=50)
+    color_text_primary: str = Field(max_length=50)
+    color_text_secondary: str = Field(max_length=50)
+    color_link_primary: str = Field(max_length=50)
+    color_link_secondary: str = Field(max_length=50)
+
+
+class ThemeUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=255)
+    color: str | None = Field(None, max_length=50)
+    color_bg_primary: str | None = Field(None, max_length=50)
+    color_bg_secondary: str | None = Field(None, max_length=50)
+    color_bg_sobre: str | None = Field(None, max_length=50)
+    color_buttons: str | None = Field(None, max_length=50)
+    color_buttons_hover: str | None = Field(None, max_length=50)
+    color_buttons_text: str | None = Field(None, max_length=50)
+    color_title_primary: str | None = Field(None, max_length=50)
+    color_title_secondary: str | None = Field(None, max_length=50)
+    color_text_primary: str | None = Field(None, max_length=50)
+    color_text_secondary: str | None = Field(None, max_length=50)
+    color_link_primary: str | None = Field(None, max_length=50)
+    color_link_secondary: str | None = Field(None, max_length=50)
+
+
+class ThemeRead(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    is_predefined: bool
+
+    color: str
+    color_bg_primary: str
+    color_bg_secondary: str
+    color_bg_sobre: str
+    color_buttons: str
+    color_buttons_hover: str
+    color_buttons_text: str
+    color_title_primary: str
+    color_title_secondary: str
+    color_text_primary: str
+    color_text_secondary: str
+    color_link_primary: str
+    color_link_secondary: str
+
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeQuotaRead(BaseModel):
+    max_total: int
+    max_custom: int
+    total_count: int
+    custom_count: int
+    is_limit_reached: bool
+
+
+LogoSlot = Literal[
+    "landing-light", "landing-dark", "system-light", "system-dark", "favicon"
+]
+
+
+class LogoSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    logo_same_for_themes: bool = True
+    system_logo_same_for_themes: bool = True
+    system_uses_landing_logo: bool = True
