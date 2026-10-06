@@ -121,7 +121,7 @@ def get_payment(
 )
 def list_payment_reminders(
     payment_id: int,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_payments_view),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.list_payment_reminders(payment_id)
