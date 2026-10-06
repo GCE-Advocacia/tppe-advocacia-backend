@@ -1,6 +1,6 @@
 """add process_documents table
 
-Revision ID: a7b8c9d0e1f2
+Revision ID: b8c9d0e1f2a3
 Revises: b1c2d3e4f5a6
 Create Date: 2026-10-04
 """
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "a7b8c9d0e1f2"
+revision = "b8c9d0e1f2a3"
 down_revision = "b1c2d3e4f5a6"
 branch_labels = None
 depends_on = None
