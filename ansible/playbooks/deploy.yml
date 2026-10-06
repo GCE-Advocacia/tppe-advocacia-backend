@@ -2,12 +2,12 @@
 - name: Deploy da aplicacao em Homologacao
   hosts: servers
   vars:
-    project_dir: /home/fga/advocacia-app-back-homolog
+    project_dir: /home/fga/advocacia-app-back-prod
     registry_image: "{{ registry_image }}"
     image_tag: "{{ image_tag }}"
 
   tasks:
-    - name: Garantir diretorio de homologacao no servidor
+    - name: Garantir diretorio de produção no servidor
       ansible.builtin.file:
         path: "{{ project_dir }}"
         state: directory
@@ -30,13 +30,13 @@
         cmd: "echo {{ registry_password | quote }} | docker login {{ registry_url }} -u {{ registry_user | quote }} --password-stdin"
       no_log: true
 
-    - name: Copiar arquivo .env para o servidor de homologacao
+    - name: Copiar arquivo .env para o servidor
       ansible.builtin.copy:
         src: "{{ env_file_path }}"
         dest: "{{ project_dir }}/.env"
         mode: "0600"
 
-    - name: Pull das imagens de homologacao
+    - name: Pull das imagens
       ansible.builtin.command:
         cmd: docker compose pull
         chdir: "{{ project_dir }}"
@@ -44,7 +44,7 @@
         REGISTRY_IMAGE: "{{ registry_image }}"
         IMAGE_TAG: "{{ image_tag }}"
 
-    - name: Recriar containers em homologacao
+    - name: Recriar containers
       ansible.builtin.command:
         cmd: docker compose up api scheduler -d --force-recreate --remove-orphans
         chdir: "{{ project_dir }}"
@@ -55,3 +55,8 @@
     - name: Limpar imagens antigas
       ansible.builtin.command:
         cmd: docker image prune -af
+
+    - name: Excluir pasta do projeto com compose e .env
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: absent
