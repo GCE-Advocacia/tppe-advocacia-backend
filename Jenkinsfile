@@ -37,7 +37,7 @@ pipeline {
                         echo "$REG_PASS" | docker login $REGISTRY -u "$REG_USER" --password-stdin
                         docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG -t $REGISTRY/$IMAGE_NAME:homolog-latest .
                         docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-                        docker push $REGISTRY/$IMAGE_NAME:homolog-latest
+                        docker push $REGISTRY/$IMAGE_NAME:prod-latest
                     '''
                 }
             }
@@ -59,7 +59,7 @@ pipeline {
                         extraVars: [
                             registry_image: "${REGISTRY}/${IMAGE_NAME}",
                             image_tag: "${IMAGE_TAG}",
-                            env_target: "homologation",
+                            env_target: "production",
                             registry_url: "${REGISTRY}",
                             registry_user: '${REG_USER}',
                             registry_password: '${REG_PASS}',
