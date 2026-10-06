@@ -23,6 +23,18 @@ from app.shared.exceptions import (
 )
 
 
+LOGO_FIELDS: dict[LogoSlot, str] = {
+    "landing-light": "logo_url",
+    "landing-dark": "logo_dark_url",
+    "system-light": "system_logo_url",
+    "system-dark": "system_logo_dark_url",
+    "favicon": "favicon_url",
+}
+
+DEFAULT_LOGO_FIELDS = {slot: f"default_{field}" for slot, field in LOGO_FIELDS.items()}
+ASSET_FIELDS = (*LOGO_FIELDS.values(), *DEFAULT_LOGO_FIELDS.values())
+
+
 class OfficeConfigService:
     def __init__(
         self,
@@ -34,20 +46,6 @@ class OfficeConfigService:
 
     def get(self) -> OfficeConfig:
         return self.repository.get_config()
-
-    def update(self, payload: OfficeConfigUpdate) -> OfficeConfig:
-        data = payload.model_dump(mode="json", exclude_unset=True)
-        with unit_of_work(self.repository.db):
-            return self.repository.update_config(data)
-
-class OfficeConfigService:
-    def __init__(
-        self,
-        repository: OfficeConfigRepository,
-        logo_storage: LogoStorage,
-    ) -> None:
-        self.repository = repository
-        self.logo_storage = logo_storage
 
     def update(self, payload: OfficeConfigUpdate) -> OfficeConfig:
         data = payload.model_dump(mode="json", exclude_unset=True)
