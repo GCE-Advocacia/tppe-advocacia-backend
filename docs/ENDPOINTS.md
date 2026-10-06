@@ -1988,6 +1988,84 @@ Lista anotações internas do processo em ordem cronológica decrescente (`creat
 
 ---
 
+### `POST /api/v1/processes/{process_id}/documents`
+
+Anexa um documento ao processo. Requisição `multipart/form-data` com o campo `file`. O tipo é detectado pelo **conteúdo** do arquivo, não pela extensão. Aceita PDF, JPEG, PNG e DOCX, até `DOCUMENT_MAX_FILE_SIZE_MB` (padrão 20 MB). O autor é o usuário autenticado.
+
+**Resposta 201**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "process_id": 1,
+    "original_name": "peticao-inicial.pdf",
+    "mime_type": "application/pdf",
+    "size_bytes": 284512,
+    "uploaded_by": 3,
+    "uploaded_by_name": "Ana Lima",
+    "created_at": "2026-10-04T14:00:00Z"
+  }
+}
+```
+
+**Erros**
+
+| Status | Code                | Situação                         |
+| ------ | ------------------- | -------------------------------- |
+| 401    | `UNAUTHORIZED`      | Token ausente ou inválido        |
+| 404    | `PROCESS_NOT_FOUND` | Processo não encontrado          |
+| 413    | `FILE_TOO_LARGE`    | Arquivo acima do limite          |
+| 415    | `INVALID_MIME_TYPE` | Tipo de arquivo não permitido    |
+| 422    | `VALIDATION_ERROR`  | Campo `file` ausente             |
+
+---
+
+### `GET /api/v1/processes/{process_id}/documents`
+
+Lista os documentos do processo em ordem decrescente (`created_at DESC, id DESC`), com paginação (`page` ≥ 1, `limit` 1–100, padrão 20). Cada item tem o mesmo formato da resposta do upload.
+
+**Erros**
+
+| Status | Code                | Situação                  |
+| ------ | ------------------- | ------------------------- |
+| 401    | `UNAUTHORIZED`      | Token ausente ou inválido |
+| 404    | `PROCESS_NOT_FOUND` | Processo não encontrado   |
+
+---
+
+### `GET /api/v1/processes/{process_id}/documents/{document_id}/download`
+
+Devolve o binário do documento com `Content-Type` do arquivo e `Content-Disposition: attachment` com o nome original. Exige autenticação: o frontend deve baixar via `fetch` com o header `Authorization`.
+
+**Erros**
+
+| Status | Code                         | Situação                                                                 |
+| ------ | ---------------------------- | ------------------------------------------------------------------------ |
+| 401    | `UNAUTHORIZED`               | Token ausente ou inválido                                                |
+| 404    | `PROCESS_NOT_FOUND`          | Processo não encontrado                                                  |
+| 404    | `PROCESS_DOCUMENT_NOT_FOUND` | Documento inexistente, de outro processo, ou arquivo ausente no servidor |
+
+---
+
+### `DELETE /api/v1/processes/{process_id}/documents/{document_id}`
+
+Exclui o documento e o arquivo. Permitido apenas para quem enviou o documento ou para `ADMIN`.
+
+**Resposta 204** (sem corpo)
+
+**Erros**
+
+| Status | Code                         | Situação                          |
+| ------ | ---------------------------- | --------------------------------- |
+| 401    | `UNAUTHORIZED`               | Token ausente ou inválido         |
+| 403    | `FORBIDDEN`                  | Usuário não é o autor nem ADMIN   |
+| 404    | `PROCESS_NOT_FOUND`          | Processo não encontrado           |
+| 404    | `PROCESS_DOCUMENT_NOT_FOUND` | Documento não encontrado          |
+
+---
+
 ## Notifications
 
 > Todos os endpoints exigem autenticação (qualquer role).

@@ -100,6 +100,14 @@ app/
 │   │   ├── service.py             # sync manual/lote, dedup e persistência
 │   │   ├── deps.py                # get_datajud_client(), get_datajud_service()
 │   │   └── router.py              # /processes/{id}/sync, /datajud/sync-active-processes
+│   ├── documents/                 # documentos anexados aos processos (US04)
+│   │   ├── model.py               # ORM: ProcessDocument
+│   │   ├── schema.py              # ProcessDocumentRead
+│   │   ├── repository.py
+│   │   ├── service.py             # upload, listagem, download e exclusão
+│   │   ├── storage.py             # DocumentStorage (Protocol) + LocalDocumentStorage
+│   │   ├── deps.py                # get_document_storage(), get_process_document_service()
+│   │   └── router.py              # /processes/{id}/documents
 │   ├── external_api_logs/         # logs de sucesso/falha de integrações externas
 │   │   ├── model.py               # ORM: ExternalApiLog
 │   │   ├── repository.py
