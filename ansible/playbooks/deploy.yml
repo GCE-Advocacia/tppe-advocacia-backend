@@ -1,5 +1,5 @@
 ---
-- name: Deploy da aplicacao em Homologacao
+- name: Deploy da aplicacao em produção
   hosts: servers
   vars:
     project_dir: /home/fga/advocacia-app-back-prod
