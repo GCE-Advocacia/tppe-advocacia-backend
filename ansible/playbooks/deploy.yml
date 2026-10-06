@@ -46,7 +46,7 @@
 
     - name: Recriar containers
       ansible.builtin.command:
-        cmd: docker compose up -d --force-recreate --no-deps --remove-orphans
+        cmd: docker compose up api scheduler -d --force-recreate --no-deps --remove-orphans
         chdir: "{{ project_dir }}"
       environment:
         REGISTRY_IMAGE: "{{ registry_image }}"
