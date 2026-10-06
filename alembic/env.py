@@ -19,6 +19,7 @@ from app.modules.google_calendar.model import GoogleCredential  # noqa: F401
 from app.modules.leads.model import Lead  # noqa: F401
 from app.modules.notifications.model import NotificationPreference  # noqa: F401
 from app.modules.office_config.model import LandingPageTheme, OfficeConfig  # noqa: F401
+from app.modules.payments.model import Payment, PaymentReminder  # noqa: F401
 from app.modules.processes.model import Process  # noqa: F401
 from app.modules.tasks.model import Task  # noqa: F401
 from app.modules.users.model import User  # noqa: F401
