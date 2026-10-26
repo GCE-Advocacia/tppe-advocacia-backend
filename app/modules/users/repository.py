@@ -1,5 +1,5 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.modules.users.model import User
 from app.shared.types import Role
@@ -31,7 +31,7 @@ class UserRepository:
         page: int = 1,
         limit: int = 20,
     ) -> tuple[list[User], int]:
-        statement = select(User)
+        statement = select(User).options(selectinload(User.permissions))
         count_statement = select(func.count()).select_from(User)
 
         if role is not None:
