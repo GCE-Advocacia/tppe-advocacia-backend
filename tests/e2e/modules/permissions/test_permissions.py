@@ -205,6 +205,20 @@ def test_processes_shared_selectors_do_not_grant_other_tabs(
         )
 
 
+def test_user_selector_only_lists_active_users_for_employees(
+    client, user_headers, active_user, inactive_user, admin_user, grant_permissions
+):
+    grant_permissions(active_user["id"], ["tarefas"])
+    for query in ("?is_active=false&limit=100", "?role=ADMIN&limit=100"):
+        response = client.get(f"/api/v1/users{query}", headers=user_headers)
+        assert response.status_code == 200
+        items = response.json()["data"]
+        assert all(item["is_active"] for item in items)
+        emails = {item["email"] for item in items}
+        assert inactive_user["email"] not in emails
+        assert active_user["email"] in emails
+
+
 def test_sensitive_admin_only_routes(
     client, user_headers, active_user, grant_permissions
 ):

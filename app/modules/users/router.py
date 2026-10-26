@@ -29,12 +29,15 @@ def list_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: UserService = Depends(get_user_service),
-    _: User = Depends(
+    current_user: User = Depends(
         require_any_permission(
             PermissionKey.LEADS, PermissionKey.TAREFAS, PermissionKey.PROCESSOS
         )
     ),
 ) -> PaginatedResponse[UserRead]:
+    # Funcionários só usam a lista como seletor de responsáveis ativos.
+    if current_user.role != Role.ADMIN:
+        role, is_active = None, True
     items, total = service.list_users(
         role=role, is_active=is_active, page=page, limit=limit
     )
