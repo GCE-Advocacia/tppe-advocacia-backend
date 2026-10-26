@@ -26,7 +26,7 @@ def make_user(**kwargs) -> User:
         "hashed_password": "hashed",
         "role": Role.USER,
         "is_active": True,
-        "can_view_payments": False,
+        "permissions": [],
         "created_by": None,
         "updated_by": None,
         "created_at": now,
@@ -57,11 +57,17 @@ def audit():
 
 
 @pytest.fixture
-def service(repo, email, audit):
+def permissions_repo():
+    return MagicMock()
+
+
+@pytest.fixture
+def service(repo, email, audit, permissions_repo):
     svc = UserService.__new__(UserService)
     svc.repository = repo
     svc.email = email
     svc.audit = audit
+    svc.permissions_repository = permissions_repo
     return svc
 
 
@@ -223,6 +229,32 @@ class TestCreateUser:
             )
 
         audit.log_user_created.assert_not_called()
+
+    def test_creates_user_with_permissions(self, service, repo, permissions_repo):
+        repo.create.return_value = make_user(id=10)
+
+        service.create_user(
+            UserCreate(
+                name="Alice",
+                email="alice@test.com",
+                permissions=["clientes", "pagamentos"],
+            ),
+            created_by=make_user(id=1),
+        )
+
+        user_id, keys = permissions_repo.replace_for_user.call_args.args
+        assert user_id == 10
+        assert list(keys) == ["clientes", "pagamentos"]
+
+    def test_new_user_defaults_to_no_permissions(self, service, repo, permissions_repo):
+        repo.create.return_value = make_user(id=10)
+
+        service.create_user(
+            UserCreate(name="Alice", email="alice@test.com"),
+            created_by=make_user(id=1),
+        )
+
+        assert list(permissions_repo.replace_for_user.call_args.args[1]) == []
 
 
 class TestUpdateUser:
@@ -390,32 +422,48 @@ class TestUpdateUser:
 
         audit.log_user_updated.assert_called_once_with(updated, admin)
 
-    def test_passes_can_view_payments_to_repo(self, service, repo):
-        existing = make_user(can_view_payments=False)
+    def test_replaces_permissions_without_updating_user_fields(
+        self, service, repo, permissions_repo
+    ):
+        existing = make_user()
         repo.get_by_id.return_value = existing
-        repo.update.return_value = make_user(can_view_payments=True)
+        repo.update.return_value = existing
 
-        result = service.update_user(
-            1, UserUpdate(can_view_payments=True), updated_by=make_user(id=5)
+        service.update_user(
+            1,
+            UserUpdate(permissions=["processos", "tarefas"]),
+            updated_by=make_user(id=5),
         )
 
-        updates = repo.update.call_args[0][1]
-        assert updates["can_view_payments"] is True
-        assert result.can_view_payments is True
+        user_id, keys = permissions_repo.replace_for_user.call_args.args
+        assert user_id == 1
+        assert list(keys) == ["processos", "tarefas"]
+        assert "permissions" not in repo.update.call_args.args[1]
 
-    def test_logs_user_updated_when_can_view_payments_changes(
-        self, service, repo, audit
+    def test_empty_permissions_revokes_all_and_logs_user_updated(
+        self, service, repo, permissions_repo, audit
     ):
-        existing = make_user(can_view_payments=True)
-        updated = make_user(can_view_payments=False)
+        existing = make_user()
         repo.get_by_id.return_value = existing
-        repo.update.return_value = updated
+        repo.update.return_value = existing
         admin = make_user(id=5)
 
-        service.update_user(1, UserUpdate(can_view_payments=False), updated_by=admin)
+        service.update_user(1, UserUpdate(permissions=[]), updated_by=admin)
 
-        audit.log_user_updated.assert_called_once_with(updated, admin)
+        assert list(permissions_repo.replace_for_user.call_args.args[1]) == []
+        audit.log_user_updated.assert_called_once_with(existing, admin)
         audit.log_user_deactivated.assert_not_called()
+
+    def test_omitted_permissions_leave_grants_unchanged(
+        self, service, repo, permissions_repo
+    ):
+        existing = make_user()
+        repo.get_by_id.return_value = existing
+        repo.update.return_value = existing
+
+        service.update_user(1, UserUpdate(name="New"), updated_by=make_user(id=5))
+
+        permissions_repo.replace_for_user.assert_not_called()
 
 
 class TestGeneratePassword:
