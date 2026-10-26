@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, false, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.modules.permissions.model import Permission
 from app.shared.db.base_model import Base
 from app.shared.types import Role
 
@@ -18,9 +19,6 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.USER)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    can_view_payments: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=false()
-    )
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", use_alter=True, name="fk_users_created_by"),
         nullable=True,
@@ -43,4 +41,11 @@ class User(Base):
     reset_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     reset_token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # Somente leitura: a escrita passa por PermissionRepository.replace_for_user.
+    permissions: Mapped[list[Permission]] = relationship(
+        Permission,
+        secondary="user_permissions",
+        order_by=Permission.sort_order,
+        viewonly=True,
     )
