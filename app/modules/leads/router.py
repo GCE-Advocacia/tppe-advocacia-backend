@@ -5,7 +5,7 @@ from app.modules.leads.model import LeadStatus
 from app.modules.leads.schema import LeadCreate, LeadRead, LeadUpdate
 from app.modules.leads.service import LeadService
 from app.modules.users.model import User
-from app.shared.deps.auth import require_admin
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -14,6 +14,7 @@ from app.shared.http.responses import (
     paginated,
 )
 from app.shared.limiter import limiter
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/leads", tags=["Leads"])
     "",
     response_model=PaginatedResponse[LeadRead],
     responses=error_responses(401, 403),
-    summary="Lista os leads cadastrados (admin)",
+    summary="Lista os leads cadastrados",
 )
 def read_leads(
     status: LeadStatus | None = Query(None),
@@ -30,7 +31,7 @@ def read_leads(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: LeadService = Depends(get_lead_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LEADS)),
 ) -> PaginatedResponse[LeadRead]:
     leads, total = service.list_leads(
         status=status, assigned_to=assigned_to, page=page, limit=limit
@@ -63,13 +64,13 @@ def create_new_lead(
     "/{lead_id}",
     response_model=SuccessResponse[LeadRead],
     responses=error_responses(401, 403, 404, 422),
-    summary="Atualiza status ou responsável do lead (admin). Retorna 422 se assigned_to não existir.",
+    summary="Atualiza status ou responsável do lead. Retorna 422 se assigned_to não existir.",
 )
 def update_lead(
     lead_id: int,
     payload: LeadUpdate,
     service: LeadService = Depends(get_lead_service),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission(PermissionKey.LEADS)),
 ) -> SuccessResponse[LeadRead]:
     return ok(
         LeadRead.model_validate(

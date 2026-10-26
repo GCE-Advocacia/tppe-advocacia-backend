@@ -5,7 +5,7 @@ from app.modules.documents.deps import get_process_document_service
 from app.modules.documents.schema import ProcessDocumentRead
 from app.modules.documents.service import ProcessDocumentService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -13,6 +13,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(tags=["Process Documents"])
 
@@ -28,7 +29,7 @@ def upload_process_document(
     process_id: int,
     file: UploadFile,
     service: ProcessDocumentService = Depends(get_process_document_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[ProcessDocumentRead]:
     document = service.upload(process_id, file, current_user=current_user)
     return ok(ProcessDocumentRead.model_validate(document))
@@ -45,7 +46,7 @@ def list_process_documents(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ProcessDocumentService = Depends(get_process_document_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> PaginatedResponse[ProcessDocumentRead]:
     items, total = service.list_documents(process_id, page=page, limit=limit)
     return paginated(
@@ -66,7 +67,7 @@ def download_process_document(
     process_id: int,
     document_id: int,
     service: ProcessDocumentService = Depends(get_process_document_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> FileResponse:
     document, path = service.get_download(process_id, document_id)
     return FileResponse(
@@ -84,6 +85,6 @@ def delete_process_document(
     process_id: int,
     document_id: int,
     service: ProcessDocumentService = Depends(get_process_document_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> None:
     service.delete(process_id, document_id, current_user=current_user)

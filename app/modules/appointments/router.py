@@ -11,7 +11,7 @@ from app.modules.appointments.schema import (
 )
 from app.modules.appointments.service import AppointmentService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -19,6 +19,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
@@ -35,7 +36,7 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 def create_appointment(
     payload: AppointmentCreate,
     service: AppointmentService = Depends(get_appointment_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[AppointmentRead]:
     appointment = service.create_appointment(payload, current_user)
     return ok(AppointmentRead.model_validate(appointment))
@@ -56,7 +57,7 @@ def list_appointments(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: AppointmentService = Depends(get_appointment_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> PaginatedResponse[AppointmentRead]:
     items, total = service.list_appointments(
         current_user,
@@ -85,7 +86,7 @@ def list_appointments(
 def get_appointment(
     appointment_id: int,
     service: AppointmentService = Depends(get_appointment_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[AppointmentRead]:
     appointment = service.get_appointment(appointment_id, current_user)
     return ok(AppointmentRead.model_validate(appointment))
@@ -101,7 +102,7 @@ def update_appointment(
     appointment_id: int,
     payload: AppointmentUpdate,
     service: AppointmentService = Depends(get_appointment_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[AppointmentRead]:
     appointment = service.update_appointment(appointment_id, payload, current_user)
     return ok(AppointmentRead.model_validate(appointment))
@@ -116,7 +117,7 @@ def update_appointment(
 def delete_appointment(
     appointment_id: int,
     service: AppointmentService = Depends(get_appointment_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> Response:
     service.delete_appointment(appointment_id, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

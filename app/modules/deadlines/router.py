@@ -12,7 +12,7 @@ from app.modules.deadlines.schema import (
 )
 from app.modules.deadlines.service import EXPIRED_DAYS_BEFORE, DeadlineService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_any_permission, require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -20,6 +20,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(tags=["Deadlines"])
 
@@ -33,7 +34,9 @@ router = APIRouter(tags=["Deadlines"])
 def calculate_deadline(
     payload: DeadlineCalculateRequest,
     service: DeadlineService = Depends(get_deadline_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(
+        require_any_permission(PermissionKey.AGENDA, PermissionKey.PROCESSOS)
+    ),
 ) -> SuccessResponse[DeadlineCalculateResponse]:
     due_date, skipped = service.calculate_due_date(
         start_date=payload.start_date,
@@ -64,7 +67,7 @@ def create_deadline(
     process_id: int,
     payload: DeadlineCreate,
     service: DeadlineService = Depends(get_deadline_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[DeadlineRead]:
     deadline = service.create_for_process(
         process_id, payload, created_by_id=current_user.id
@@ -83,7 +86,7 @@ def list_deadlines(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: DeadlineService = Depends(get_deadline_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> PaginatedResponse[DeadlineRead]:
     items, total = service.list_by_process(process_id, page=page, limit=limit)
     return paginated(
@@ -104,7 +107,7 @@ def update_deadline(
     deadline_id: int,
     payload: DeadlineUpdate,
     service: DeadlineService = Depends(get_deadline_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[DeadlineRead]:
     return ok(DeadlineRead.model_validate(service.update(deadline_id, payload)))
 
@@ -118,7 +121,7 @@ def update_deadline(
 def delete_deadline(
     deadline_id: int,
     service: DeadlineService = Depends(get_deadline_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> Response:
     service.delete(deadline_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -134,7 +137,7 @@ def list_deadline_alerts(
     process_id: int,
     deadline_id: int,
     service: DeadlineService = Depends(get_deadline_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[list[DeadlineAlertRead]]:
     alerts = service.list_alerts(process_id, deadline_id, current_user)
     return ok(

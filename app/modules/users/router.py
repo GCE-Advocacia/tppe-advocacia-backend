@@ -4,7 +4,7 @@ from app.modules.users.deps import get_user_service
 from app.modules.users.model import User
 from app.modules.users.schema import UserCreate, UserRead, UserUpdate
 from app.modules.users.service import UserService
-from app.shared.deps.auth import require_admin
+from app.shared.deps.auth import require_admin, require_any_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -12,7 +12,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
-from app.shared.types import Role
+from app.shared.types import PermissionKey, Role
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -29,7 +29,11 @@ def list_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: UserService = Depends(get_user_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(
+        require_any_permission(
+            PermissionKey.LEADS, PermissionKey.TAREFAS, PermissionKey.PROCESSOS
+        )
+    ),
 ) -> PaginatedResponse[UserRead]:
     items, total = service.list_users(
         role=role, is_active=is_active, page=page, limit=limit

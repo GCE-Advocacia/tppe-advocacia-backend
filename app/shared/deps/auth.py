@@ -65,9 +65,3 @@ def require_any_permission(*keys: PermissionKey) -> Callable[..., User]:
 
 def require_permission(key: PermissionKey) -> Callable[..., User]:
     return require_any_permission(key)
-
-
-def require_payments_view(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != Role.ADMIN and not current_user.can_view_payments:
-        raise ForbiddenError()
-    return current_user

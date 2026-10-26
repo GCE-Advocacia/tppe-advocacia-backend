@@ -6,8 +6,9 @@ from app.modules.media.schema import MediaUploadResponse
 from app.modules.media.service import MediaService
 from app.modules.media.storage.logo import LogoStorage
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_any_permission
 from app.shared.http.responses import SuccessResponse, error_responses, ok
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/media", tags=["Media"])
 
@@ -32,7 +33,9 @@ def upload_file(
     request: Request,
     file: UploadFile,
     service: MediaService = Depends(get_media_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(
+        require_any_permission(PermissionKey.ARTIGOS, PermissionKey.LANDING_PAGE)
+    ),
 ) -> SuccessResponse[MediaUploadResponse]:
     return ok(service.upload(file, str(request.base_url)))
 
