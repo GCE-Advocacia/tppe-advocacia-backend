@@ -21,7 +21,7 @@ app/
 │   │   ├── base_model.py          # DeclarativeBase do SQLAlchemy
 │   │   └── uow.py                 # unit_of_work para transações
 │   ├── deps/
-│   │   ├── auth.py                # dependências de autenticação (get_current_user, require_admin, require_payments_view)
+│   │   ├── auth.py                # get_current_user, require_admin, require_permission, require_any_permission
 │   │   ├── email.py               # injeção de EmailService
 │   │   └── google.py              # injeção de GoogleCalendarClient
 │   ├── http/
@@ -30,7 +30,7 @@ app/
 │   │   └── helpers.py             # utilitários compartilhados entre services
 │   ├── exceptions.py              # exceções customizadas (AppException e subclasses)
 │   ├── datajud.py                 # utilitários para integração DataJud
-│   └── types.py                   # tipos compartilhados e type aliases
+│   └── types.py                   # Role e PermissionKey (12 abas liberáveis)
 ├── modules/
 │   ├── users/                     # domínio de usuários
 │   │   ├── model.py               # ORM: User, Role
@@ -39,6 +39,13 @@ app/
 │   │   ├── service.py             # regras de negócio de usuário
 │   │   ├── deps.py                # get_user_service() — factory injetável via Depends
 │   │   └── router.py              # rotas HTTP /users
+│   ├── permissions/               # catálogo de abas e concessões por usuário
+│   │   ├── model.py               # Permission, UserPermission
+│   │   ├── schema.py              # PermissionRead
+│   │   ├── repository.py          # catálogo, chaves por usuário, substituição atômica
+│   │   ├── service.py
+│   │   ├── deps.py
+│   │   └── router.py              # GET /permissions (ADMIN)
 │   ├── leads/                     # domínio de leads
 │   │   ├── model.py
 │   │   ├── schema.py
@@ -292,6 +299,12 @@ Define o esquema do banco de dados via SQLAlchemy. Representa a entidade persist
 
 Schemas Pydantic que definem o formato esperado nas requisições e nas respostas. Funcionam como DTOs e desacoplam a camada HTTP dos models internos.
 
+### Autorização por aba
+
+`permissions` é o catálogo de 12 abas (chave única, nome, descrição e ordem do menu); `user_permissions` associa usuários e permissões com unicidade do par, FKs em cascata e `created_at`. A migration popula o catálogo e dá aos funcionários existentes as seis abas a que tinham acesso, mais `pagamentos` para quem já tinha acesso aos vencimentos. Usuários novos começam sem concessões. `PermissionRepository.replace_for_user()` substitui o conjunto inteiro no mesmo `unit_of_work` da criação/atualização de `User`, sem N+1 na listagem (`selectinload`).
+
+`UserRead.permissions` devolve chaves ordenadas pelo catálogo; `UserCreate` e `UserUpdate` validam cada chave pelo enum `PermissionKey` (`422 VALIDATION_ERROR` para chave desconhecida). Mudanças de permissões geram o evento de auditoria existente `USER_UPDATED`. O JWT carrega `permissions` apenas para a UI; o backend reconsulta o banco a cada requisição. O administrador ignora os checks de aba, mas gerenciamento de usuários/permissões, auditoria e anonimização de clientes permanecem exclusivos dele. Rotas usadas como seletores por várias abas aplicam `require_any_permission` sem liberar o restante da aba dona do recurso.
+
 ---
 
 ## `shared/` — Código transversal
@@ -305,7 +318,7 @@ Código que pertence a nenhum módulo específico, mas é usado por vários, org
 
 ### `shared/deps/`
 
-- **`auth.py`** — `get_current_user()`, `require_admin()` e `require_payments_view()`; dependências de autenticação injetadas via `Depends()` nas rotas. `require_payments_view()` libera `ADMIN` ou `USER` com `can_view_payments = true` e protege apenas as rotas de leitura de `payments` (as de escrita continuam com `require_admin()`)
+- **`auth.py`** — `get_current_user()` valida o JWT e carrega o usuário atual; `require_admin()` libera apenas administradores; `require_permission(PermissionKey)` e `require_any_permission(*PermissionKey)` liberam `ADMIN` ou usuários com a chave (ou qualquer das chaves). As permissões são relidas do banco a cada requisição, sem confiar no claim do JWT. `ForbiddenError` preserva o envelope `FORBIDDEN` padrão.
 - **`email.py`** — injeção de `EmailService` (real ou fake)
 - **`google.py`** — injeção de `GoogleCalendarClient` (real ou fake)
 
@@ -397,7 +410,7 @@ O projeto usa o sistema nativo de DI do FastAPI via `Depends`. O padrão é:
 
 ```
 deps.py (módulo)      →  get_X_service() constrói o grafo (Repository → Service)
-shared/deps/*.py      →  get_current_user(), require_admin(), require_payments_view(), get_email_service(), get_google_client()
+shared/deps/*.py      →  get_current_user(), require_admin(), require_permission(), require_any_permission()
 router.py (módulo)    →  injeta o service via Depends(get_X_service)
 service.py (módulo)   →  recebe dependências já construídas no __init__
 repository.py (módulo) →  único ponto que recebe Session
