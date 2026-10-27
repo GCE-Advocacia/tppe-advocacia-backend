@@ -1,0 +1,11 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+O status do processo {{ process_number }} mudou de {{ previous_status }} para {{ new_status }}.
+{% if reason %}
+Motivo: {{ reason }}
+{% endif %}
+{% if system_url %}
+
+Ver processo: {{ system_url }}/sistema/processos
+{% endif %}
+{% endblock %}

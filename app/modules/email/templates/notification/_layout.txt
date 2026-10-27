@@ -1,0 +1,8 @@
+{% extends "base.txt" %}
+{% block footer_note %}
+
+Você recebeu este aviso porque ele está ativo nas suas preferências.
+{% if system_url %}
+Gerenciar notificações: {{ system_url }}/sistema/notificacoes
+{% endif %}
+{% endblock %}

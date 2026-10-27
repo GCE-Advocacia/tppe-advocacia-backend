@@ -1,0 +1,12 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+O lead #{{ lead_id }} foi atribuído a você.
+
+Nome: {{ lead_name }}
+E-mail: {{ lead_email }}
+Telefone: {{ lead_phone or "-" }}
+{% if system_url %}
+
+Ver leads: {{ system_url }}/sistema/leads
+{% endif %}
+{% endblock %}

@@ -4,8 +4,9 @@ import string
 import bcrypt
 from sqlalchemy.exc import IntegrityError
 
+from app.config.settings import get_settings
 from app.modules.audit_logs.service import AuditLogService
-from app.modules.email.protocol import EmailService
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.users.model import User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schema import UserCreate, UserUpdate
@@ -18,11 +19,11 @@ class UserService:
     def __init__(
         self,
         repository: UserRepository,
-        email: EmailService,
+        email_sender: TemplatedEmailSender,
         audit: AuditLogService,
     ) -> None:
         self.repository = repository
-        self.email = email
+        self.email_sender = email_sender
         self.audit = audit
 
     def list_users(
@@ -60,10 +61,14 @@ class UserService:
         except IntegrityError as exc:
             raise EmailAlreadyExistsError() from exc
 
-        self.email.send(
+        self.email_sender.send(
+            "user_welcome",
+            {
+                "user_name": payload.name,
+                "temp_password": temp_password,
+                "login_link": f"{get_settings().frontend_url}/login",
+            },
             to=payload.email,
-            subject="Bem-vindo ao sistema",
-            html=f"<p>Olá, <b>{payload.name}</b>!</p><p>Sua senha temporária: <b>{temp_password}</b></p>",
         )
         self.audit.log_user_created(user, created_by)
         return user

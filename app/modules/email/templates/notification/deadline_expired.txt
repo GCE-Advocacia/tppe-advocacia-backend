@@ -1,0 +1,10 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+ATENÇÃO: o prazo {{ deadline_type }} do processo {{ process_number }} venceu em {{ due_date|data_br }}.
+
+Verifique imediatamente a situação processual.
+{% if system_url %}
+
+Ver processo: {{ system_url }}/sistema/processos
+{% endif %}
+{% endblock %}

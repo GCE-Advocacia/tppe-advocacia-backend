@@ -1,0 +1,13 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+Uma nova tarefa foi atribuída a você.
+
+#{{ task_id }} - {{ task_title }}
+{% if due_date %}
+Prazo: {{ due_date|data_br }}
+{% endif %}
+{% if system_url %}
+
+Ver tarefas: {{ system_url }}/sistema/tarefas
+{% endif %}
+{% endblock %}

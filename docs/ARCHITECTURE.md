@@ -80,10 +80,22 @@ app/
 │   │   └── storage/
 │   │       ├── protocol.py        # StorageProvider (Protocol)
 │   │       └── local.py           # LocalStorageProvider
-│   ├── email/                     # envio de e-mail
-│   │   ├── protocol.py            # EmailService (Protocol)
-│   │   ├── resend_service.py      # implementação Resend
-│   │   └── fake_service.py        # implementação fake para testes
+│   ├── email/                     # envio de e-mail (ver "Envio de e-mail")
+│   │   ├── protocol.py            # EmailMessage, SendResult, EmailProvider, EmailService
+│   │   ├── errors.py              # EmailSendError(transient, failover) e classificação SMTP
+│   │   ├── mime.py                # monta o MIME (texto + HTML + anexos, Message-ID)
+│   │   ├── smtp_provider.py       # SmtpConfig, SmtpProvider (STARTTLS/SSL, lote)
+│   │   ├── resend_provider.py     # ResendConfig, ResendProvider (reserva)
+│   │   ├── failover.py            # FailoverEmailService (tenta em ordem)
+│   │   ├── factory.py             # monta a cadeia a partir do .env
+│   │   ├── fake_service.py        # implementação fake para testes
+│   │   ├── registry.py            # catálogo dos tipos de e-mail (TemplateSpec)
+│   │   ├── renderer.py            # EmailRenderer (Jinja2 + CSS inline)
+│   │   ├── branding.py            # marca do escritório (office_config, cache 5 min)
+│   │   ├── filters.py             # brl, data_br, data_hora_br, data_extenso
+│   │   ├── sender.py              # TemplatedEmailSender (renderiza + entrega)
+│   │   ├── router.py              # GET /email/templates e preview (admin)
+│   │   └── templates/             # base.html/.txt + um .html e um .txt por tipo
 │   ├── clients/                   # gestão de clientes (PF e PJ)
 │   │   ├── model.py               # ORM: Client, ClientNote
 │   │   ├── schema.py              # ClientCreate/Update/Read, ClientNoteCreate/Update/Read, ClientTimelineRead
@@ -486,6 +498,93 @@ app.dependency_overrides[get_media_service] = lambda: MediaService(FakeStoragePr
 - **Service receber `Session` diretamente** — quem constrói repositories é o `deps.py`, não o service
 - **Router instanciar repositories ou services diretamente** — responsabilidade do `deps.py`
 - **`deps.py` conter lógica de negócio** — apenas constrói e injeta; lógica vai no service
+
+---
+
+## Envio de e-mail
+
+### Contrato
+
+```python
+EmailProvider.deliver(EmailMessage) -> SendResult   # novo
+EmailService.send(to, subject, html) -> None        # antigo, mantido como atalho
+```
+
+`EmailMessage` tem `to`, `subject`, `html`, `text`, `cc`, `bcc`, `reply_to`,
+`attachments` e `headers` (ex.: `X-Email-Id` com o id da fila). `SendResult`
+diz qual provedor entregou (`provider`), o `message_id` e o `duration_ms`.
+
+Quem envia depende do `FailoverEmailService` (via `get_email_service()`), que
+implementa os dois contratos. API e scheduler usam a mesma fábrica.
+
+### Failover
+
+`EMAIL_PROVIDERS=smtp,resend` define a ordem. O serviço tenta cada provedor e
+só passa ao próximo quando `EmailSendError.failover` é verdadeiro:
+
+| Erro | `transient` (tentar depois) | `failover` (tentar no reserva) |
+| --- | --- | --- |
+| timeout, conexão caiu, 4xx (421, 450, 451, 452) | sim | sim |
+| 535 credencial inválida, 5.4.5 cota diária, 5.7.x política | não | sim |
+| 550 5.1.1 destinatário inexistente, 553, 554 genérico | não | não |
+| mensagem acima de `EMAIL_MAX_SIZE_MB` | não | não |
+
+Se todos falham, o erro final é `transient=True` quando algum dos provedores
+falhou por algo passageiro. Um erro depois de o servidor aceitar o DATA (ex.:
+no `QUIT`) não conta como falha, para o failover não duplicar o e-mail.
+
+Dentro de um lote, `with service:` abre a conexão SMTP uma vez e a reaproveita
+(checando com `NOOP`).
+
+### Configurando o Gmail
+
+1. Ative a verificação em 2 etapas na conta Google.
+2. Gere uma senha de app em <https://myaccount.google.com/apppasswords>.
+3. No `.env`: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+   `SMTP_SECURITY=starttls` (ou `465` + `ssl`), `SMTP_USERNAME` e
+   `SMTP_FROM_EMAIL` com o endereço da conta (ou um alias verificado em
+   "Enviar e-mail como") e `SMTP_PASSWORD` com a senha de app.
+4. Teste: `python -m scripts.send_test_email voce@exemplo.com`
+   (`--provider smtp` para pular o failover).
+
+Limites do Gmail: ~500 destinatários/dia (conta pessoal) ou ~2000 (Workspace).
+Estourar devolve 550 5.4.5, que aciona o reserva. O Render gratuito bloqueia
+as portas 465 e 587.
+
+### Ambiente local
+
+O `docker-compose.override.yml` sobe o Mailpit e aponta API e scheduler para
+ele (`SMTP_HOST=mailpit`, porta 1025, sem TLS). Os e-mails aparecem em
+<http://localhost:8025> e nada sai para a internet. Sem `EMAIL_PROVIDERS`
+(testes, dev fora do docker), os e-mails ficam no `FakeEmailService`.
+`pytest -m mailpit` roda o teste de integração contra ele.
+
+### Templates
+
+Todo e-mail é um tipo registrado em `registry.py` (id, nome, assunto, contexto
+de exemplo e chaves opcionais), com `templates/<id>.html` e `templates/<id>.txt`
+(`notification.task_assigned` → `templates/notification/task_assigned.*`).
+
+```python
+email_sender.send("password_reset", {"user_name": ..., "reset_link": ..., "expire_minutes": 30}, to=user.email)
+```
+
+- `base.html` traz logo, cores e rodapé do `office_config` (sem config, usa
+  `#232C43` / `#661C16` e o nome padrão). O CSS é passado para inline pelo
+  `premailer`.
+- O `.html` usa autoescape: nada do contexto vira HTML. O `.txt` e o assunto
+  não escapam (o assunto também perde quebras de linha).
+- `StrictUndefined`: chave esquecida quebra o teste. Chaves opcionais ficam
+  em `TemplateSpec.defaults`.
+- O contexto deve ser JSON (datas em ISO, valores como string): é o que vai
+  para a fila de e-mail.
+- `TemplatedEmailSender.send(template_id, context, to)` tem a mesma assinatura
+  do `EmailOutbox.enqueue`, para a troca ser só de dependência.
+
+Novo tipo: registrar em `registry.py`, criar o `.html` e o `.txt` e rodar
+`UPDATE_SNAPSHOTS=1 pytest tests/unit/modules/email/test_renderer.py` para
+gravar o snapshot. A tela "Modelos de e-mail" (`/sistema/modelos-email`) mostra
+todos os tipos com os dados de exemplo.
 
 ---
 

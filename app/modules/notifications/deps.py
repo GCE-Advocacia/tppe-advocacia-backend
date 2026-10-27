@@ -2,19 +2,19 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.modules.email.protocol import EmailService
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.notifications.repository import NotificationPreferenceRepository
 from app.modules.notifications.service import NotificationService
 from app.modules.users.repository import UserRepository
-from app.shared.deps.email import get_email_service
+from app.shared.deps.email import get_templated_sender
 
 
 def get_notification_service(
     db: Session = Depends(get_db),
-    email: EmailService = Depends(get_email_service),
+    email_sender: TemplatedEmailSender = Depends(get_templated_sender),
 ) -> NotificationService:
     return NotificationService(
         NotificationPreferenceRepository(db),
         UserRepository(db),
-        email,
+        email_sender,
     )

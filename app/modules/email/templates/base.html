@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{ office.name }}</title>
+<style>
+  body { margin: 0; padding: 0; background-color: #F3F4F6; font-family: Arial, Helvetica, sans-serif; color: #1F2937; }
+  .wrapper { width: 100%; background-color: #F3F4F6; }
+  .container { width: 600px; max-width: 600px; background-color: #FFFFFF; }
+  .topbar { height: 6px; font-size: 0; line-height: 0; }
+  .header { padding: 24px 32px; text-align: center; border-bottom: 1px solid #E5E7EB; }
+  .header img { max-width: 220px; max-height: 72px; border: 0; }
+  .office-name { font-size: 20px; font-weight: bold; }
+  .content { padding: 32px; font-size: 15px; line-height: 1.6; }
+  .content h1 { margin: 0 0 16px; font-size: 20px; line-height: 1.3; }
+  .content p { margin: 0 0 16px; }
+  .details { width: 100%; margin: 0 0 16px; border-collapse: collapse; }
+  .details td { padding: 8px 0; border-bottom: 1px solid #E5E7EB; font-size: 14px; vertical-align: top; }
+  .details .label { width: 40%; color: #6B7280; }
+  .highlight { padding: 12px 16px; margin: 0 0 16px; background-color: #F9FAFB; border-left: 4px solid #661C16; }
+  .button-cell { border-radius: 6px; }
+  .button { display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: bold; text-decoration: none; border-radius: 6px; }
+  .small { font-size: 13px; color: #6B7280; }
+  .fallback-link { word-break: break-all; }
+  .footer { padding: 24px 32px; font-size: 12px; line-height: 1.6; text-align: center; color: #6B7280; background-color: #F9FAFB; }
+  .footer a { color: #6B7280; }
+  @media only screen and (max-width: 620px) {
+    .container { width: 100% !important; }
+    .content, .header, .footer { padding-left: 16px !important; padding-right: 16px !important; }
+  }
+</style>
+</head>
+<body>
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">{% block preheader %}{% endblock %}</span>
+<table role="presentation" class="wrapper" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td align="center" style="padding: 24px 8px;">
+      <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0">
+        <tr><td class="topbar" style="background-color: {{ colors.primary }};">&nbsp;</td></tr>
+        <tr>
+          <td class="header">
+            {% if office.logo_url %}
+            <img src="{{ office.logo_url }}" alt="{{ office.name }}">
+            {% else %}
+            <span class="office-name" style="color: {{ colors.primary }};">{{ office.name }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td class="content">
+            {% block content %}{% endblock %}
+          </td>
+        </tr>
+        <tr>
+          <td class="footer">
+            <strong>{{ office.name }}</strong><br>
+            {% if office.address %}{{ office.address }}<br>{% endif %}
+            {% if office.phone %}Telefone: {{ office.phone }}{% endif %}
+            {% if office.phone and office.email %} &middot; {% endif %}
+            {% if office.email %}<a href="mailto:{{ office.email }}">{{ office.email }}</a>{% endif %}
+            {% if office.phone or office.email %}<br>{% endif %}
+            {% if office.whatsapp_url %}<a href="{{ office.whatsapp_url }}">WhatsApp</a>{% endif %}
+            {% if office.whatsapp_url and office.website_url %} &middot; {% endif %}
+            {% if office.website_url %}<a href="{{ office.website_url }}">{{ office.website_url }}</a>{% endif %}
+            {% block footer_note %}{% endblock %}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

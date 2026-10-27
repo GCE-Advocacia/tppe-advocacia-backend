@@ -431,3 +431,12 @@ class PredefinedThemeCannotBeDeletedError(AppException):
             "PREDEFINED_THEME_DELETE_NOT_ALLOWED",
             "Temas pré-definidos do sistema não podem ser excluídos.",
         )
+
+
+class EmailTemplateNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "EMAIL_TEMPLATE_NOT_FOUND",
+            "Email template not found",
+        )

@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.modules.clients.repository import ClientRepository
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.payments.model import PaymentStatus, ReminderKind, ReminderStatus
 from app.modules.payments.repository import (
     PaymentReminderRepository,
@@ -15,6 +16,11 @@ from app.modules.users.model import User
 from app.shared.db.uow import unit_of_work
 
 logger = logging.getLogger(__name__)
+
+REMINDER_TEMPLATES = {
+    ReminderKind.D_MINUS_1: "payment_reminder_d1",
+    ReminderKind.D_ZERO: "payment_reminder_d0",
+}
 
 
 class PaymentService:
@@ -163,10 +169,10 @@ class PaymentService:
             )
 
 class PaymentReminderService:
-    def __init__(self, db: Session, email_service) -> None:
+    def __init__(self, db: Session, email_sender: TemplatedEmailSender) -> None:
         self.db = db
         self.reminder_repo = PaymentReminderRepository(db)
-        self.email_service = email_service
+        self.email_sender = email_sender
 
     def dispatch(self, today: date) -> dict:
         """Busca pagamentos próximos ao vencimento e dispara os e-mails."""
@@ -175,7 +181,7 @@ class PaymentReminderService:
 
         for payment, kind in due_reminders:
             email = payment.client.email
-            
+
             # Regra: Cliente sem e-mail não recebe disparo
             if not email:
                 with unit_of_work(self.db):
@@ -187,15 +193,12 @@ class PaymentReminderService:
                     )
                 results["no_email"] += 1
                 continue
-                
-            subject, body = self._build_email_content(payment, kind)
-            
+
             try:
-                # Tenta disparar o e-mail usando o serviço injetado (Resend ou Fake)
-                self.email_service.send(
+                self.email_sender.send(
+                    REMINDER_TEMPLATES[kind],
+                    self._email_context(payment),
                     to=email,
-                    subject=subject,
-                    html=body
                 )
                 status = ReminderStatus.SENT
                 error_msg = None
@@ -205,8 +208,8 @@ class PaymentReminderService:
                 status = ReminderStatus.FAILED
                 error_msg = str(e)
                 results["failed"] += 1
-                
-            # Regra: Grava o registro da tentativa logo após a ação, 
+
+            # Regra: Grava o registro da tentativa logo após a ação,
             # garantindo que o `unit_of_work` feche a transação por iteração.
             with unit_of_work(self.db):
                 self.reminder_repo.register(
@@ -216,37 +219,15 @@ class PaymentReminderService:
                     status=status,
                     error_message=error_msg
                 )
-                
+
         return results
 
-    def _build_email_content(self, payment, kind: ReminderKind) -> tuple[str, str]:
-        """Constrói o template do e-mail diferenciando véspera (D-1) e dia do vencimento (D-0)."""
-        client_name = payment.client.name
-        
-      
-        if payment.amount is not None:
-            amount_str = f"R$ {payment.amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        else:
-            amount_str = "Valor a consultar"
-            
-        date_str = payment.payment_date.strftime("%d/%m/%Y")
-        desc = payment.description or "Serviços jurídicos / Honorários"
-        
-        if kind == ReminderKind.D_MINUS_1:
-            subject = "Lembrete: Vencimento amanhã"
-            body = (
-                f"Olá, {client_name}.\n\n"
-                f"Este é um lembrete de que o pagamento referente a '{desc}' "
-                f"no valor de {amount_str} vence amanhã, dia {date_str}.\n\n"
-                "Por favor, desconsidere este aviso caso já tenha efetuado o pagamento."
-            )
-        else:
-            subject = "Aviso: Vencimento hoje"
-            body = (
-                f"Olá, {client_name}.\n\n"
-                f"Informamos que o pagamento referente a '{desc}' "
-                f"no valor de {amount_str} vence hoje, dia {date_str}.\n\n"
-                "Agradecemos a atenção e solicitamos que desconsidere caso já tenha pago."
-            )
-            
-        return subject, body
+    @staticmethod
+    def _email_context(payment) -> dict:
+        """Contexto em tipos de JSON (vai para a fila de e-mail como está)."""
+        return {
+            "client_name": payment.client.name,
+            "description": payment.description,
+            "amount": str(payment.amount) if payment.amount is not None else None,
+            "due_date": payment.payment_date.isoformat(),
+        }

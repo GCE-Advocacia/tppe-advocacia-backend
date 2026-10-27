@@ -18,7 +18,6 @@ from app.modules.deadlines.repository import (
     DeadlineRepository,
 )
 from app.modules.deadlines.service import DeadlineService
-from app.modules.email.resend_service import ResendEmailService
 from app.modules.external_api_logs.notifier import ExternalApiFailureNotifier
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
 from app.modules.forensic_holidays.repository import ForensicHolidayRepository
@@ -27,6 +26,7 @@ from app.modules.notifications.repository import NotificationPreferenceRepositor
 from app.modules.notifications.service import NotificationService
 from app.modules.processes.repository import ProcessRepository
 from app.modules.users.repository import UserRepository
+from app.shared.deps.email import build_templated_sender
 from app.shared.deps.google import get_google_calendar_client
 from app.modules.payments.service import PaymentReminderService
 
@@ -42,7 +42,7 @@ def dispatch_deadline_alerts_job() -> None:
             notification_service = NotificationService(
                 NotificationPreferenceRepository(db),
                 UserRepository(db),
-                ResendEmailService(),
+                build_templated_sender(),
             )
             service = DeadlineService(
                 repository=DeadlineRepository(db),
@@ -105,7 +105,7 @@ def dispatch_datajud_sync_job() -> None:
             notification_service = NotificationService(
                 NotificationPreferenceRepository(db),
                 users,
-                ResendEmailService(),
+                build_templated_sender(),
             )
             log_repository = ExternalApiLogRepository(db)
             service = DataJudService(
@@ -138,7 +138,7 @@ def dispatch_payment_reminders_job() -> None:
         with SessionLocal() as db:
             service = PaymentReminderService(
                 db=db, 
-                email_service=ResendEmailService()
+                email_sender=build_templated_sender()
             )
             
             today = datetime.now(timezone.utc).date()

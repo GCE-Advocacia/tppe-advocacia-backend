@@ -12,7 +12,7 @@ from app.modules.auth.schema import (
     PasswordResetRequest,
     TokenResponse,
 )
-from app.modules.email.protocol import EmailService
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.users.repository import UserRepository
 from app.shared.db.uow import unit_of_work
 from app.shared.exceptions import (
@@ -26,9 +26,11 @@ settings = get_settings()
 
 
 class AuthService:
-    def __init__(self, user_repository: UserRepository, email: EmailService) -> None:
+    def __init__(
+        self, user_repository: UserRepository, email_sender: TemplatedEmailSender
+    ) -> None:
         self.user_repository = user_repository
-        self.email = email
+        self.email_sender = email_sender
 
     def login(self, payload: LoginRequest) -> TokenResponse:
         user = self.user_repository.get_by_email(payload.email)
@@ -79,14 +81,14 @@ class AuthService:
             )
 
         reset_link = f"{settings.frontend_url}/reset-password?token={token}"
-        self.email.send(
+        self.email_sender.send(
+            "password_reset",
+            {
+                "user_name": user.name,
+                "reset_link": reset_link,
+                "expire_minutes": settings.password_reset_expire_minutes,
+            },
             to=user.email,
-            subject="Redefinição de senha",
-            html=(
-                f"<p>Clique no link para redefinir sua senha "
-                f"(válido por {settings.password_reset_expire_minutes} minutos):</p>"
-                f"<p><a href='{reset_link}'>{reset_link}</a></p>"
-            ),
         )
 
     def confirm_reset(self, payload: PasswordResetConfirm) -> None:

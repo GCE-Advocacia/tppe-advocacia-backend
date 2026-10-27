@@ -1,0 +1,10 @@
+{% extends "notification/_layout.html" %}
+{% from "_macros.html" import button, details, highlight, heading with context %}
+{% block preheader %}Vence em {{ business_days_left }} dia(s) útil(eis){% endblock %}
+{% block content %}
+{{ heading("Prazo se aproximando") }}
+{% call highlight() %}O prazo <strong>{{ deadline_type }}</strong> do processo <strong>{{ process_number }}</strong> vence em <strong>{{ business_days_left }} dia(s) útil(eis)</strong>.{% endcall %}
+{{ details([("Processo", process_number), ("Prazo", deadline_type), ("Data-limite", due_date|data_br)]) }}
+<p>Providencie a peça ou medida necessária a tempo.</p>
+{% if system_url %}{{ button(system_url ~ "/sistema/processos", "Ver processo") }}{% endif %}
+{% endblock %}

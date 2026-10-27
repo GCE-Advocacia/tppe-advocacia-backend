@@ -5,6 +5,10 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.modules.clients.repository import ClientRepository
+from app.modules.email.branding import StaticBrandingProvider
+from app.modules.email.fake_service import FakeEmailService as BaseFakeEmailService
+from app.modules.email.renderer import EmailRenderer
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.payments.model import PaymentStatus, ReminderKind, ReminderStatus
 from app.modules.payments.repository import PaymentRepository, PaymentReminderRepository
 from app.modules.users.repository import UserRepository
@@ -17,12 +21,14 @@ TODAY = date(2026, 10, 10)
 TOMORROW = TODAY + timedelta(days=1)
 D_MINUS_2 = TODAY + timedelta(days=2)
 
-class FakeEmailService:
-    def __init__(self):
-        self.sent_emails = []
+class FakeEmailService(BaseFakeEmailService):
+    @property
+    def sent_emails(self) -> list[dict]:
+        return self.sent
 
-    def send(self, to: str, subject: str, body: str):
-        self.sent_emails.append({"to": to, "subject": subject, "body": body})
+
+def _sender(fake: FakeEmailService) -> TemplatedEmailSender:
+    return TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), fake)
 
 @pytest.fixture
 def user_id(db: Session) -> int:
@@ -51,7 +57,7 @@ class TestPaymentReminderService:
         make_payment(db, client_id, user_id, TOMORROW)
         
         fake_email = FakeEmailService()
-        service = PaymentReminderService(db, fake_email)
+        service = PaymentReminderService(db, _sender(fake_email))
         
         results = service.dispatch(TODAY)
         
@@ -62,12 +68,17 @@ class TestPaymentReminderService:
         assert "Aviso: Vencimento hoje" in subjects
         assert "Lembrete: Vencimento amanhã" in subjects
         assert fake_email.sent_emails[0]["to"] == "maria@test.com"
+        html = fake_email.sent_emails[0]["html"]
+        assert "Maria" in html
+        assert "R$ 150,00" in html
+        assert "Honorários" in html
+        assert all(m.text for m in fake_email.messages)
 
     def test_nao_envia_em_d_minus_2(self, db: Session, client_id: int, user_id: int):
         make_payment(db, client_id, user_id, D_MINUS_2)
         
         fake_email = FakeEmailService()
-        service = PaymentReminderService(db, fake_email)
+        service = PaymentReminderService(db, _sender(fake_email))
         
         results = service.dispatch(TODAY)
         
@@ -78,7 +89,7 @@ class TestPaymentReminderService:
         make_payment(db, client_id, user_id, TODAY)
         
         fake_email = FakeEmailService()
-        service = PaymentReminderService(db, fake_email)
+        service = PaymentReminderService(db, _sender(fake_email))
         
         # Primeira execução
         results_1 = service.dispatch(TODAY)
@@ -96,7 +107,7 @@ class TestPaymentReminderService:
         payment = make_payment(db, client_no_email, user_id, TODAY)
         
         fake_email = FakeEmailService()
-        service = PaymentReminderService(db, fake_email)
+        service = PaymentReminderService(db, _sender(fake_email))
         
         results = service.dispatch(TODAY)
         
@@ -112,9 +123,23 @@ class TestPaymentReminderService:
         make_payment(db, client_id, user_id, TODAY, status=PaymentStatus.PAID)
         
         fake_email = FakeEmailService()
-        service = PaymentReminderService(db, fake_email)
+        service = PaymentReminderService(db, _sender(fake_email))
         
         results = service.dispatch(TODAY)
         
         assert results["sent"] == 0
         assert len(fake_email.sent_emails) == 0
+
+    def test_falha_no_envio_grava_failed(self, db: Session, client_id: int, user_id: int):
+        from app.modules.email.errors import EmailSendError
+
+        payment = make_payment(db, client_id, user_id, TODAY)
+        fake_email = FakeEmailService(
+            fail_with=EmailSendError("down", transient=True, failover=True, provider="smtp")
+        )
+
+        results = PaymentReminderService(db, _sender(fake_email)).dispatch(TODAY)
+
+        assert results["failed"] == 1
+        reminders = PaymentReminderRepository(db).list_by_payment(payment.id)
+        assert reminders[0].status == ReminderStatus.FAILED

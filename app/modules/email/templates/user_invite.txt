@@ -1,0 +1,10 @@
+{% extends "base.txt" %}
+{% block content %}
+Olá, {{ user_name }}.
+
+{% if invited_by %}{{ invited_by }} convidou você{% else %}Você foi convidado{% endif %} para acessar o sistema do {{ office.name }}. Defina a sua senha pelo link abaixo:
+
+{{ invite_link }}
+
+O link vale até {{ expires_at|data_hora_br }} e só pode ser usado uma vez. Se expirar, peça um novo convite ao administrador.
+{% endblock %}

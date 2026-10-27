@@ -52,15 +52,24 @@ def email():
 
 
 @pytest.fixture
+def email_sender(email):
+    from app.modules.email.branding import StaticBrandingProvider
+    from app.modules.email.renderer import EmailRenderer
+    from app.modules.email.sender import TemplatedEmailSender
+
+    return TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), email)
+
+
+@pytest.fixture
 def audit():
     return MagicMock()
 
 
 @pytest.fixture
-def service(repo, email, audit):
+def service(repo, email_sender, audit):
     svc = UserService.__new__(UserService)
     svc.repository = repo
-    svc.email = email
+    svc.email_sender = email_sender
     svc.audit = audit
     return svc
 

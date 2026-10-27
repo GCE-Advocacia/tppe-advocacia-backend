@@ -8,6 +8,7 @@ from app.modules.clients.router import router as clients_router
 from app.modules.datajud.router import router as datajud_router
 from app.modules.deadlines.router import router as deadlines_router
 from app.modules.documents.router import router as documents_router
+from app.modules.email.router import router as email_router
 from app.modules.external_api_logs.router import router as external_api_logs_router
 from app.modules.finance.router import router as finance_router
 from app.modules.forensic_holidays.router import router as forensic_holidays_router
@@ -46,3 +47,4 @@ api_router.include_router(appointments_router)
 api_router.include_router(payments_router)
 api_router.include_router(google_calendar_router)
 api_router.include_router(finance_router)
+api_router.include_router(email_router)

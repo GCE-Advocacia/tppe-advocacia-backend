@@ -1,0 +1,9 @@
+{% extends "notification/_layout.html" %}
+{% from "_macros.html" import button, details, heading with context %}
+{% block preheader %}{{ previous_status }} para {{ new_status }}{% endblock %}
+{% block content %}
+{{ heading("Status do processo alterado") }}
+<p>O status do processo <strong>{{ process_number }}</strong> foi alterado.</p>
+{{ details([("Status anterior", previous_status), ("Novo status", new_status), ("Motivo", reason)]) }}
+{% if system_url %}{{ button(system_url ~ "/sistema/processos", "Ver processo") }}{% endif %}
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "base.txt" %}
+{% block content %}
+Se você está lendo esta mensagem, o envio de e-mail do {{ office.name }} está funcionando.
+
+Enviado em {{ sent_at|data_hora_br }}{% if requested_by %} a pedido de {{ requested_by }}{% endif %}.
+{% endblock %}

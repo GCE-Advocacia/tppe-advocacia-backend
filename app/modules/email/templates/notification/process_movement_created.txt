@@ -1,0 +1,15 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+Uma nova movimentação foi registrada no processo {{ process_number }}.
+
+{{ title }}
+{% if description %}
+{{ description }}
+{% endif %}
+
+Ocorrida em {{ occurred_at|data_hora_br }}.
+{% if system_url %}
+
+Ver processo: {{ system_url }}/sistema/processos
+{% endif %}
+{% endblock %}

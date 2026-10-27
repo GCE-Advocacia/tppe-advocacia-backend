@@ -1,0 +1,10 @@
+{% extends "notification/_layout.html" %}
+{% from "_macros.html" import button, highlight, heading with context %}
+{% block preheader %}{{ title }} - processo {{ process_number }}{% endblock %}
+{% block content %}
+{{ heading("Nova movimentação processual") }}
+<p>Uma nova movimentação foi registrada no processo <strong>{{ process_number }}</strong>.</p>
+{% call highlight() %}<strong>{{ title }}</strong>{% if description %}<br>{{ description }}{% endif %}{% endcall %}
+<p class="small">Ocorrida em {{ occurred_at|data_hora_br }}.</p>
+{% if system_url %}{{ button(system_url ~ "/sistema/processos", "Ver processo") }}{% endif %}
+{% endblock %}

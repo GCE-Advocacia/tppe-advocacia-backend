@@ -1,9 +1,9 @@
 import logging
 
-from app.modules.email.protocol import EmailService
+from app.modules.email.registry import notification_template_id
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.notifications.repository import NotificationPreferenceRepository
 from app.modules.notifications.schema import EventType
-from app.modules.notifications.templates import TEMPLATES
 from app.modules.users.repository import UserRepository
 from app.shared.db.uow import unit_of_work
 
@@ -15,11 +15,11 @@ class NotificationService:
         self,
         repository: NotificationPreferenceRepository,
         users: UserRepository,
-        email: EmailService,
+        email_sender: TemplatedEmailSender,
     ) -> None:
         self.repository = repository
         self.users = users
-        self.email = email
+        self.email_sender = email_sender
 
     def get_preferences(self, user_id: int) -> dict[EventType, bool]:
         stored = {p.event_type: p.enabled for p in self.repository.get_by_user(user_id)}
@@ -41,13 +41,9 @@ class NotificationService:
             if not self.get_preferences(user_id)[event_type]:
                 return
 
-            renderer = TEMPLATES.get(event_type)
-            if renderer is None:
-                logger.warning("No template registered for event %s", event_type)
-                return
-
-            subject, html = renderer(payload)
-            self.email.send(to=user.email, subject=subject, html=html)
+            self.email_sender.send(
+                notification_template_id(event_type), payload, to=user.email
+            )
         except Exception:
             logger.exception(
                 "Failed to send notification user_id=%s event=%s",

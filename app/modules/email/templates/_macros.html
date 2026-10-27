@@ -1,0 +1,29 @@
+{% macro button(url, label) -%}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 24px;">
+  <tr>
+    <td class="button-cell" style="background-color: {{ colors.accent }};">
+      <a class="button" href="{{ url }}" style="color: {{ colors.button_text }}; background-color: {{ colors.accent }};">{{ label }}</a>
+    </td>
+  </tr>
+</table>
+<p class="small">Se o botão não funcionar, copie e cole este endereço no navegador:<br>
+<a class="fallback-link" href="{{ url }}" style="color: {{ colors.link }};">{{ url }}</a></p>
+{%- endmacro %}
+
+{% macro details(rows) -%}
+<table role="presentation" class="details" cellpadding="0" cellspacing="0" border="0">
+  {% for label, value in rows %}
+  {% if value is not none and value != "" %}
+  <tr><td class="label">{{ label }}</td><td>{{ value }}</td></tr>
+  {% endif %}
+  {% endfor %}
+</table>
+{%- endmacro %}
+
+{% macro highlight() -%}
+<div class="highlight" style="border-left-color: {{ colors.accent }};">{{ caller() }}</div>
+{%- endmacro %}
+
+{% macro heading(text) -%}
+<h1 style="color: {{ colors.primary }};">{{ text }}</h1>
+{%- endmacro %}
