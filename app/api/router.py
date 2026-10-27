@@ -17,9 +17,8 @@ from app.modules.leads.router import router as leads_router
 from app.modules.media.router import router as media_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.office_config.router import router as office_config_router
-from app.modules.office_config.router import router as office_config_router
 from app.modules.payments.router import router as payments_router
-from app.modules.processes.router import router as processes_router
+from app.modules.permissions.router import router as permissions_router
 from app.modules.processes.router import router as processes_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
@@ -29,6 +28,7 @@ api_router.include_router(health_router)
 api_router.include_router(leads_router)
 api_router.include_router(auth_router)
 api_router.include_router(users_router)
+api_router.include_router(permissions_router)
 api_router.include_router(audit_logs_router)
 api_router.include_router(office_config_router)
 api_router.include_router(media_router)

@@ -9,8 +9,9 @@ from app.modules.datajud.schema import (
 )
 from app.modules.datajud.service import DataJudService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user, require_admin
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import SuccessResponse, error_responses, ok
+from app.shared.types import PermissionKey
 
 router = APIRouter(tags=["DataJud"])
 
@@ -25,7 +26,7 @@ def sync_process_movements_from_datajud(
     process_id: int,
     payload: DataJudSyncRequest | None = Body(default=None),
     service: DataJudService = Depends(get_datajud_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[DataJudSyncResponse]:
     return ok(
         service.sync_process_movements(
@@ -45,7 +46,7 @@ def sync_process_movements_from_datajud(
 def sync_active_processes_from_datajud(
     payload: DataJudBatchSyncRequest,
     service: DataJudService = Depends(get_datajud_service),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission(PermissionKey.LOGS_API)),
 ) -> SuccessResponse[DataJudBatchSyncResponse]:
     return ok(
         service.sync_active_processes(

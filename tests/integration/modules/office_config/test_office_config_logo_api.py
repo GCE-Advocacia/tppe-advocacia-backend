@@ -18,6 +18,7 @@ from app.main import app_exception_handler, validation_exception_handler
 from app.modules.media.router import router as media_router
 from app.modules.office_config.model import OfficeConfig
 from app.modules.office_config.router import router as office_config_router
+from app.modules.permissions.model import Permission, UserPermission
 from app.modules.users.model import User
 from app.shared.exceptions import AppException
 from app.shared.types import Role
@@ -47,6 +48,8 @@ def logo_api(tmp_path, monkeypatch):
     )
     OfficeConfig.__table__.create(engine)
     User.__table__.create(engine)
+    Permission.__table__.create(engine)
+    UserPermission.__table__.create(engine)
     with Session(engine) as session:
         session.add(OfficeConfig(id=1, differentials=[], areas_of_practice=[]))
         session.add_all(
@@ -136,7 +139,7 @@ def test_public_configuration_has_no_logo_initially(logo_api):
 
 
 @pytest.mark.parametrize(("user_id", "status"), [(None, 401), (2, 403), (3, 401)])
-def test_only_active_administrators_can_change_logo(logo_api, user_id, status):
+def test_only_active_permitted_users_can_change_logo(logo_api, user_id, status):
     client, engine, storage = logo_api
     response = client.put(
         LOGO_URL,
@@ -147,6 +150,23 @@ def test_only_active_administrators_can_change_logo(logo_api, user_id, status):
     with Session(engine) as session:
         assert session.get(OfficeConfig, 1).logo_url is None
     assert not list(storage.rglob("*.png"))
+
+
+def test_user_with_landing_page_permission_can_change_logo(logo_api):
+    client, engine, _ = logo_api
+    with Session(engine) as session:
+        permission = Permission(key="landing_page", name="Landing Page", sort_order=1)
+        session.add(permission)
+        session.flush()
+        session.add(UserPermission(user_id=2, permission_id=permission.id))
+        session.commit()
+
+    response = client.put(
+        LOGO_URL,
+        files={"file": ("logo.png", image_bytes(), "image/png")},
+        headers=auth_headers(2),
+    )
+    assert response.status_code == 200
 
 
 @pytest.mark.parametrize("format", ["PNG", "JPEG", "WEBP"])

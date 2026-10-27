@@ -82,7 +82,7 @@ def other_process(db_session, created_client_ids, created_process_ids):
 
 
 @pytest.fixture
-def other_user_headers(client, db_session: Session):
+def other_user_headers(client, db_session: Session, grant_permissions):
     password = "Valid@1234"
     user = UserRepository(db_session).create(
         name="Other Docs User",
@@ -90,7 +90,7 @@ def other_user_headers(client, db_session: Session):
         hashed_password=bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(),
         role=Role.USER,
     )
-    db_session.commit()
+    grant_permissions(user.id, ["processos"])
     user_id = user.id
     response = client.post(
         "/api/v1/auth/login",

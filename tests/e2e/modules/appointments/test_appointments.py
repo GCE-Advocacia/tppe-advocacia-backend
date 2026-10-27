@@ -23,7 +23,7 @@ def created_appointments(db_session: Session, active_user, admin_user):
 
 
 @pytest.fixture
-def other_user_headers(db_session: Session, client):
+def other_user_headers(db_session: Session, client, grant_permissions):
     password = "Valid@1234"
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     user = UserRepository(db_session).create(
@@ -32,7 +32,7 @@ def other_user_headers(db_session: Session, client):
         hashed_password=hashed,
         role=Role.USER,
     )
-    db_session.commit()
+    grant_permissions(user.id, ["agenda"])
     response = client.post(
         "/api/v1/auth/login",
         json={"email": user.email, "password": password},

@@ -8,6 +8,7 @@ from app.config.settings import get_settings
 from app.main import app
 from app.modules.email.fake_service import FakeEmailService
 from app.modules.google_calendar.fake_service import FakeGoogleCalendarClient
+from app.modules.permissions.repository import PermissionRepository
 from app.modules.tasks.model import Task
 from app.modules.users.model import User
 from app.modules.users.repository import UserRepository
@@ -76,7 +77,22 @@ def _teardown_user(db_session: Session, user_id: int) -> None:
 
 
 @pytest.fixture
-def active_user(db_session):
+def user_permissions():
+    # Funcionário que já existia antes da migration; novos usuários começam vazios.
+    return ["artigos", "clientes", "agenda", "processos", "tarefas", "notificacoes"]
+
+
+@pytest.fixture
+def grant_permissions(db_session):
+    def grant(user_id: int, keys: list[str]) -> None:
+        PermissionRepository(db_session).replace_for_user(user_id, keys)
+        db_session.commit()
+
+    return grant
+
+
+@pytest.fixture
+def active_user(db_session, user_permissions):
     password = "Valid@1234"
     user = UserRepository(db_session).create(
         name="Active User",
@@ -84,6 +100,7 @@ def active_user(db_session):
         hashed_password=_hash(password),
         role=Role.USER,
     )
+    PermissionRepository(db_session).replace_for_user(user.id, user_permissions)
     db_session.commit()
     yield {"id": user.id, "email": user.email, "password": password}
     _teardown_user(db_session, user.id)
