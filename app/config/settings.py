@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -33,7 +33,26 @@ class Settings(BaseSettings):
         30, validation_alias="PASSWORD_RESET_EXPIRE_MINUTES"
     )
 
-    resend_api_key: str = Field(validation_alias="RESEND_API_KEY")
+    # Ordem do failover. Vazio = FakeEmailService (nada sai).
+    email_providers: Annotated[list[str], NoDecode] = Field(
+        default=[], validation_alias="EMAIL_PROVIDERS"
+    )
+    email_max_size_mb: int = Field(10, ge=1, le=50, validation_alias="EMAIL_MAX_SIZE_MB")
+
+    smtp_host: str = Field("", validation_alias="SMTP_HOST")
+    smtp_port: int = Field(587, validation_alias="SMTP_PORT")
+    smtp_username: str = Field("", validation_alias="SMTP_USERNAME")
+    smtp_password: str = Field("", validation_alias="SMTP_PASSWORD")
+    smtp_from_email: str = Field("", validation_alias="SMTP_FROM_EMAIL")
+    smtp_from_name: str = Field("", validation_alias="SMTP_FROM_NAME")
+    smtp_security: Literal["starttls", "ssl", "none"] = Field(
+        "starttls", validation_alias="SMTP_SECURITY"
+    )
+    smtp_timeout_seconds: float = Field(
+        15.0, gt=0, le=120, validation_alias="SMTP_TIMEOUT_SECONDS"
+    )
+
+    resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")
     resend_from_email: str = Field(
         "onboarding@resend.dev", validation_alias="RESEND_FROM_EMAIL"
     )
@@ -156,6 +175,21 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @field_validator("email_providers", mode="before")
+    @classmethod
+    def parse_email_providers(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [p.strip().lower() for p in value.split(",") if p.strip()]
+        return value
+
+    @field_validator("email_providers")
+    @classmethod
+    def known_email_providers(cls, providers: list[str]) -> list[str]:
+        unknown = set(providers) - {"smtp", "resend"}
+        if unknown:
+            raise ValueError(f"EMAIL_PROVIDERS has unknown provider(s): {unknown}")
+        return providers
 
     @field_validator("deadline_alert_intervals", mode="before")
     @classmethod

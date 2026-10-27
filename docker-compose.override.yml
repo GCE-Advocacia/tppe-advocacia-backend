@@ -10,3 +10,36 @@ services:
       - ./app:/app/app
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
+    environment:
+      EMAIL_PROVIDERS: smtp
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURITY: none
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@advocacia.local}
+    depends_on:
+      mailpit:
+        condition: service_started
+
+  scheduler:
+    environment:
+      EMAIL_PROVIDERS: smtp
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURITY: none
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@advocacia.local}
+    depends_on:
+      mailpit:
+        condition: service_started
+
+  # Caixa de entrada local: todo e-mail do ambiente de dev cai aqui.
+  # SMTP em 1025, interface web em http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"

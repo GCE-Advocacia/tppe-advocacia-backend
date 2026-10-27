@@ -1,6 +1,9 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
+markers = [
+    "mailpit: envia de verdade para o Mailpit do docker compose (pulado se ele não estiver no ar)",
+]
 
 [tool.ruff]
 target-version = "py310"

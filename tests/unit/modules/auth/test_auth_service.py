@@ -11,7 +11,10 @@ from app.modules.auth.schema import (
     PasswordResetRequest,
 )
 from app.modules.auth.service import AuthService
+from app.modules.email.branding import StaticBrandingProvider
 from app.modules.email.fake_service import FakeEmailService
+from app.modules.email.renderer import EmailRenderer
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.users.model import User
 from app.shared.exceptions import (
     ExpiredResetTokenError,
@@ -55,7 +58,9 @@ def fake_email():
 
 @pytest.fixture
 def service(repo, fake_email):
-    return AuthService(repo, fake_email)
+    return AuthService(
+        repo, TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), fake_email)
+    )
 
 
 def make_login_payload(password="correct_password"):
