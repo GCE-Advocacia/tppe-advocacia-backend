@@ -1,0 +1,28 @@
+name: Keep alive
+
+# O plano gratuito do Render hiberna a API após ~15 min sem acesso, e o
+# agendador interno (alertas de prazo, lembretes de pagamento) só roda com ela
+# acordada. Este workflow acessa o health check a cada 10 minutos.
+# Obs.: o GitHub pode atrasar execuções agendadas em horários de pico e
+# desativa este workflow após 60 dias sem commits no repositório.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HEALTH_URL: ${{ vars.API_HEALTH_URL || 'https://tppe-advocacia-backend.onrender.com/api/v1/health' }}
+    steps:
+      - name: Acessa o health check da API
+        # --max-time alto: se a API estiver hibernando, a primeira resposta
+        # pode levar até ~1 minuto.
+        run: curl --fail --silent --show-error --retry 2 --retry-delay 10 --max-time 90 "$HEALTH_URL"
