@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config.settings import Settings, get_settings
-from app.db.database import SessionLocal
+from app.db.database import SessionLocal, get_db
 from app.modules.email.branding import OfficeBrandingProvider
 from app.modules.email.factory import (
     ProviderConfig,
@@ -20,6 +20,9 @@ from app.modules.email.fake_service import FakeEmailService
 from app.modules.email.protocol import EmailProvider
 from app.modules.email.renderer import EmailRenderer
 from app.modules.email.sender import TemplatedEmailSender
+from app.modules.email_outbox.repository import EmailOutboxRepository
+from app.modules.email_outbox.sender import QueuedEmailSender
+from app.modules.email_outbox.service import EmailOutbox
 from app.modules.email_settings.configs import profile_to_config
 from app.modules.email_settings.repository import EmailProfileRepository
 
@@ -112,3 +115,13 @@ def build_templated_sender() -> TemplatedEmailSender:
     Cada chamada confere a versão dos perfis, então cada lote do scheduler
     já sai pela configuração mais nova."""
     return TemplatedEmailSender(get_email_renderer(), get_email_service())
+
+
+def get_queued_sender(db: Session = Depends(get_db)) -> QueuedEmailSender:
+    """Remetente das rotas: grava na fila; quem entrega é o worker."""
+    return QueuedEmailSender(EmailOutbox(EmailOutboxRepository(db)))
+
+
+def build_queued_sender(db: Session) -> QueuedEmailSender:
+    """Mesmo remetente para os jobs do scheduler, na sessão do job."""
+    return QueuedEmailSender(EmailOutbox(EmailOutboxRepository(db)))

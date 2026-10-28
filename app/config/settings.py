@@ -84,6 +84,31 @@ class Settings(BaseSettings):
     email_max_attempts: int = Field(
         6, ge=1, le=50, validation_alias="EMAIL_MAX_ATTEMPTS"
     )
+    # Circuit breaker: após N falhas do provedor seguidas, pula ele por um
+    # tempo e deixa 1 e-mail passar de teste depois.
+    email_breaker_threshold: int = Field(
+        5, ge=1, le=100, validation_alias="EMAIL_BREAKER_THRESHOLD"
+    )
+    email_breaker_cooldown_seconds: int = Field(
+        300, ge=10, validation_alias="EMAIL_BREAKER_COOLDOWN_SECONDS"
+    )
+    # 0 desliga. Gmail e provedores gratuitos bloqueiam rajadas.
+    email_rate_limit_per_minute: int = Field(
+        30, ge=0, validation_alias="EMAIL_RATE_LIMIT_PER_MINUTE"
+    )
+    # Depois disso o corpo do e-mail é apagado e só os metadados ficam.
+    email_retention_days: int = Field(
+        180, ge=1, validation_alias="EMAIL_RETENTION_DAYS"
+    )
+    email_alert_throttle_minutes: int = Field(
+        60, ge=0, le=1440, validation_alias="EMAIL_ALERT_THROTTLE_MINUTES"
+    )
+    email_backlog_alert_size: int = Field(
+        20, ge=1, validation_alias="EMAIL_BACKLOG_ALERT_SIZE"
+    )
+    email_backlog_alert_minutes: int = Field(
+        15, ge=1, validation_alias="EMAIL_BACKLOG_ALERT_MINUTES"
+    )
 
     resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")
     resend_from_email: str = Field(

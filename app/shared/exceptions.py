@@ -563,3 +563,24 @@ class InviteResendLimitError(AppException):
             f"Limite de {limit} convites por hora para este usuário. "
             "Tente de novo mais tarde.",
         )
+
+
+class EmailLogNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND, "EMAIL_LOG_NOT_FOUND", "E-mail não encontrado"
+        )
+
+
+class EmailNotCancellableError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_409_CONFLICT,
+            "EMAIL_NOT_CANCELLABLE",
+            "Só e-mails pendentes ou com falha podem ser cancelados",
+        )
+
+
+class EmailNotResendableError(AppException):
+    def __init__(self, message: str) -> None:
+        super().__init__(status.HTTP_409_CONFLICT, "EMAIL_NOT_RESENDABLE", message)

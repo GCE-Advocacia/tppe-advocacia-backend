@@ -1,11 +1,15 @@
+import calendar
 import logging
-from datetime import date
+import uuid
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.modules.clients.repository import ClientRepository
-from app.modules.email.sender import TemplatedEmailSender
+from app.modules.email_outbox.model import EmailOutboxItem, EmailStatus
+from app.modules.email_outbox.repository import EmailOutboxRepository
+from app.modules.email_outbox.service import EmailOutbox
 from app.modules.payments.model import PaymentStatus, ReminderKind, ReminderStatus
 from app.modules.payments.repository import (
     PaymentReminderRepository,
@@ -18,9 +22,20 @@ from app.shared.db.uow import unit_of_work
 logger = logging.getLogger(__name__)
 
 REMINDER_TEMPLATES = {
+    ReminderKind.D_MINUS_5: "payment_reminder_d5",
     ReminderKind.D_MINUS_1: "payment_reminder_d1",
     ReminderKind.D_ZERO: "payment_reminder_d0",
 }
+PAYMENT_RELATED_TYPE = "payment"
+
+
+def add_months(start: date, months: int) -> date:
+    """Mesmo dia ``months`` meses depois; dia 31 vira o último dia do mês."""
+    month_index = start.month - 1 + months
+    year = start.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(start.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
 
 
 class PaymentService:
@@ -28,6 +43,7 @@ class PaymentService:
         self.payment_repository = PaymentRepository(db)
         self.client_repository = ClientRepository(db)
         self.reminder_repository = PaymentReminderRepository(db)
+        self.outbox = EmailOutbox(EmailOutboxRepository(db))
 
     def create(
         self,
@@ -44,17 +60,27 @@ class PaymentService:
                 detail="Cliente não encontrado.",
             )
 
-        with unit_of_work(self.payment_repository.db):
-            payment = self.payment_repository.create(
-                client_id=payload.client_id,
-                payment_date=payload.payment_date,
-                amount=payload.amount,
-                description=payload.description,
-                created_by=current_user.id,
-                status=payload.status,
-            )
+        # Recorrente: um vencimento por mês, no mesmo dia, todos de uma vez.
+        installments = payload.recurrence_months or 1
+        recurrence_id = str(uuid.uuid4()) if installments > 1 else None
 
-        return payment
+        with unit_of_work(self.payment_repository.db):
+            payments = [
+                self.payment_repository.create(
+                    client_id=payload.client_id,
+                    payment_date=add_months(payload.payment_date, index),
+                    amount=payload.amount,
+                    description=payload.description,
+                    created_by=current_user.id,
+                    status=payload.status if index == 0 else PaymentStatus.PENDING,
+                    recurrence_id=recurrence_id,
+                    installment=index + 1 if recurrence_id else None,
+                    installments=installments if recurrence_id else None,
+                )
+                for index in range(installments)
+            ]
+
+        return payments[0]
 
     def get_by_id(self, payment_id: int):
         payment = self.payment_repository.get_by_id(
@@ -117,6 +143,7 @@ class PaymentService:
         with unit_of_work(self.payment_repository.db):
             if due_date_changed:
                 self.reminder_repository.delete_by_payment(payment.id)
+                self.outbox.cancel_related(PAYMENT_RELATED_TYPE, payment.id)
 
             payment = self.payment_repository.update(
                 payment,
@@ -129,6 +156,7 @@ class PaymentService:
         payment = self.get_by_id(payment_id)
 
         with unit_of_work(self.payment_repository.db):
+            self.outbox.cancel_related(PAYMENT_RELATED_TYPE, payment.id)
             self.payment_repository.delete(payment)
 
     def list_reminders(
@@ -169,65 +197,68 @@ class PaymentService:
             )
 
 class PaymentReminderService:
-    def __init__(self, db: Session, email_sender: TemplatedEmailSender) -> None:
+    def __init__(self, db: Session, outbox: EmailOutbox | None = None) -> None:
         self.db = db
         self.reminder_repo = PaymentReminderRepository(db)
-        self.email_sender = email_sender
+        self.outbox = outbox or EmailOutbox(EmailOutboxRepository(db))
 
-    def dispatch(self, today: date) -> dict:
-        """Busca pagamentos próximos ao vencimento e dispara os e-mails."""
+    def dispatch(self, today: date) -> dict[str, int]:
+        """Põe na fila os lembretes do dia. Lembrete e e-mail entram na mesma
+        transação; quem envia é o worker da fila, que atualiza o lembrete."""
         due_reminders = self.reminder_repo.list_due_for_reminder(today)
-        results = {"sent": 0, "failed": 0, "no_email": 0}
+        results = {"queued": 0, "no_email": 0}
 
         for payment, kind in due_reminders:
             email = payment.client.email
-
-            # Regra: Cliente sem e-mail não recebe disparo
-            if not email:
-                with unit_of_work(self.db):
+            with unit_of_work(self.db):
+                # Regra: cliente sem e-mail não recebe disparo.
+                if not email:
                     self.reminder_repo.register(
                         payment_id=payment.id,
                         kind=kind,
                         email=None,
-                        status=ReminderStatus.NO_EMAIL
+                        status=ReminderStatus.NO_EMAIL,
                     )
-                results["no_email"] += 1
-                continue
+                    results["no_email"] += 1
+                    continue
 
-            try:
-                self.email_sender.send(
+                item = self.outbox.enqueue(
                     REMINDER_TEMPLATES[kind],
-                    self._email_context(payment),
+                    self._email_context(payment, today),
                     to=email,
+                    related=(PAYMENT_RELATED_TYPE, payment.id),
                 )
-                status = ReminderStatus.SENT
-                error_msg = None
-                results["sent"] += 1
-            except Exception as e:
-                logger.error(f"Falha ao enviar lembrete do pagamento {payment.id} para {email}: {e}")
-                status = ReminderStatus.FAILED
-                error_msg = str(e)
-                results["failed"] += 1
-
-            # Regra: Grava o registro da tentativa logo após a ação,
-            # garantindo que o `unit_of_work` feche a transação por iteração.
-            with unit_of_work(self.db):
                 self.reminder_repo.register(
                     payment_id=payment.id,
                     kind=kind,
                     email=email,
-                    status=status,
-                    error_message=error_msg
+                    status=ReminderStatus.QUEUED,
+                    email_outbox_id=item.id,
                 )
+            results["queued"] += 1
 
         return results
 
+    def sync_from_email(self, item: EmailOutboxItem) -> None:
+        """Ouvinte do worker: o lembrete acompanha o fim do e-mail na fila."""
+        if item.related_type != PAYMENT_RELATED_TYPE:
+            return
+        self.reminder_repo.sync_from_email(
+            item.id,
+            sent=item.status == EmailStatus.SENT,
+            error=item.last_error
+            if item.status != EmailStatus.CANCELLED
+            else "E-mail cancelado",
+            finished_at=item.sent_at or datetime.now(timezone.utc),
+        )
+
     @staticmethod
-    def _email_context(payment) -> dict:
+    def _email_context(payment, today: date) -> dict:
         """Contexto em tipos de JSON (vai para a fila de e-mail como está)."""
         return {
             "client_name": payment.client.name,
             "description": payment.description,
             "amount": str(payment.amount) if payment.amount is not None else None,
             "due_date": payment.payment_date.isoformat(),
+            "days_left": (payment.payment_date - today).days,
         }

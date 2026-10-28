@@ -20,6 +20,7 @@ from app.scheduler.jobs import (
     dispatch_google_pull_job,
     dispatch_payment_reminders_job,
     process_email_outbox_job,
+    purge_email_bodies_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,12 @@ def start_scheduler() -> None:
         replace_existing=True,
         max_instances=1,
         coalesce=True,
+    )
+    _scheduler.add_job(
+        purge_email_bodies_job,
+        trigger=CronTrigger(hour=3, minute=30),
+        id="email_retention",
+        replace_existing=True,
     )
     _scheduler.start()
     logger.info(

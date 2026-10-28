@@ -1,5 +1,16 @@
+from typing import Protocol
+
 from app.modules.email.protocol import EmailMessage, EmailProvider, SendResult
 from app.modules.email.renderer import EmailRenderer
+
+
+class TemplateSender(Protocol):
+    """O que os services usam: na API e no scheduler é o ``QueuedEmailSender``
+    (fila); nos testes, o ``TemplatedEmailSender`` com o ``FakeEmailService``."""
+
+    def send(
+        self, template_id: str, context: dict, to: str | list[str]
+    ) -> object: ...
 
 
 class TemplatedEmailSender:

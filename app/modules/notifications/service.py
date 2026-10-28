@@ -1,7 +1,7 @@
 import logging
 
 from app.modules.email.registry import notification_template_id
-from app.modules.email.sender import TemplatedEmailSender
+from app.modules.email.sender import TemplateSender
 from app.modules.notifications.repository import NotificationPreferenceRepository
 from app.modules.notifications.schema import EventType
 from app.modules.users.repository import UserRepository
@@ -15,7 +15,7 @@ class NotificationService:
         self,
         repository: NotificationPreferenceRepository,
         users: UserRepository,
-        email_sender: TemplatedEmailSender,
+        email_sender: TemplateSender,
     ) -> None:
         self.repository = repository
         self.users = users

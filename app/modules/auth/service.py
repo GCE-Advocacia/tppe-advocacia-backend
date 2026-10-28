@@ -9,7 +9,7 @@ from app.modules.auth.schema import (
     PasswordResetRequest,
     TokenResponse,
 )
-from app.modules.email.sender import TemplatedEmailSender
+from app.modules.email.sender import TemplateSender
 from app.modules.users.repository import UserRepository
 from app.shared.db.uow import unit_of_work
 from app.shared.exceptions import (
@@ -30,7 +30,7 @@ class AuthService:
     def __init__(
         self,
         user_repository: UserRepository,
-        email_sender: TemplatedEmailSender,
+        email_sender: TemplateSender,
         tokens: OneTimeTokenService | None = None,
     ) -> None:
         self.user_repository = user_repository

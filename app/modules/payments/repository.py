@@ -16,6 +16,10 @@ from app.modules.payments.model import (
 )
 
 
+# Antecedência do primeiro lembrete (pedido do cliente: 5 dias antes).
+ADVANCE_REMINDER_DAYS = 5
+
+
 class PaymentRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -28,6 +32,9 @@ class PaymentRepository:
         description: str | None = None,
         created_by: int | None = None,
         status: PaymentStatus = PaymentStatus.PENDING,
+        recurrence_id: str | None = None,
+        installment: int | None = None,
+        installments: int | None = None,
     ) -> Payment:
         payment = Payment(
             client_id=client_id,
@@ -36,6 +43,9 @@ class PaymentRepository:
             description=description,
             created_by=created_by,
             status=status,
+            recurrence_id=recurrence_id,
+            installment=installment,
+            installments=installments,
         )
 
         self.db.add(payment)
@@ -98,20 +108,31 @@ class PaymentReminderRepository:
     def list_due_for_reminder(
         self, today: date
     ) -> list[tuple[Payment, ReminderKind]]:
-        """Pagamentos pendentes que vencem hoje ou amanhã e ainda não tiveram o
-        lembrete daquele tipo enviado com sucesso."""
-        due = self._due_on(today + timedelta(days=1), ReminderKind.D_MINUS_1)
-        due += self._due_on(today, ReminderKind.D_ZERO)
+        """Pagamentos pendentes que precisam de lembrete hoje.
+
+        D-5 usa uma janela (vence de amanhã até daqui a 5 dias) em vez de uma
+        data exata: vencimento criado em cima da hora ou um dia sem scheduler
+        ainda recebem o aviso antecipado. D0 é só para quem vence hoje.
+        """
+        due = self._due_between(
+            today + timedelta(days=1),
+            today + timedelta(days=ADVANCE_REMINDER_DAYS),
+            ReminderKind.D_MINUS_5,
+        )
+        due += self._due_between(today, today, ReminderKind.D_ZERO)
         return due
 
-    def _due_on(
-        self, due_date: date, kind: ReminderKind
+    def _due_between(
+        self, start: date, end: date, kind: ReminderKind
     ) -> list[tuple[Payment, ReminderKind]]:
-        already_sent = exists().where(
+        # Na fila ou enviado conta como resolvido; falha e sem e-mail tentam de novo.
+        already_handled = exists().where(
             and_(
                 PaymentReminder.payment_id == Payment.id,
                 PaymentReminder.kind == kind,
-                PaymentReminder.status == ReminderStatus.SENT,
+                PaymentReminder.status.in_(
+                    (ReminderStatus.SENT, ReminderStatus.QUEUED)
+                ),
             )
         )
         stmt = (
@@ -121,8 +142,9 @@ class PaymentReminderRepository:
             .where(
                 Client.deleted_at.is_(None),
                 Payment.status == PaymentStatus.PENDING,
-                Payment.payment_date == due_date,
-                ~already_sent,
+                Payment.payment_date >= start,
+                Payment.payment_date <= end,
+                ~already_handled,
             )
             .order_by(Payment.id.asc())
         )
@@ -142,6 +164,7 @@ class PaymentReminderRepository:
         email: str | None,
         status: ReminderStatus,
         error_message: str | None = None,
+        email_outbox_id: str | None = None,
     ) -> PaymentReminder:
         """Grava a tentativa. Se já existe registro (falha ou sem e-mail),
         atualiza o mesmo em vez de criar outro, respeitando a constraint única."""
@@ -153,6 +176,7 @@ class PaymentReminderRepository:
         reminder.email = email
         reminder.status = status
         reminder.error_message = error_message[:500] if error_message else None
+        reminder.email_outbox_id = email_outbox_id
         reminder.sent_at = datetime.now(timezone.utc)
 
         self.db.flush()
@@ -210,3 +234,24 @@ class PaymentReminderRepository:
             delete(PaymentReminder).where(PaymentReminder.payment_id == payment_id)
         )
         self.db.flush()
+
+    def sync_from_email(
+        self,
+        email_outbox_id: str,
+        sent: bool,
+        error: str | None,
+        finished_at: datetime,
+    ) -> PaymentReminder | None:
+        """Atualiza o lembrete quando o e-mail dele termina na fila."""
+        reminder = self.db.scalars(
+            select(PaymentReminder).where(
+                PaymentReminder.email_outbox_id == email_outbox_id
+            )
+        ).first()
+        if reminder is None:
+            return None
+        reminder.status = ReminderStatus.SENT if sent else ReminderStatus.FAILED
+        reminder.error_message = error[:500] if error else None
+        reminder.sent_at = finished_at
+        self.db.flush()
+        return reminder

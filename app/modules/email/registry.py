@@ -55,9 +55,26 @@ _SPECS = [
         defaults={"invited_by": None},
     ),
     TemplateSpec(
+        id="payment_reminder_d5",
+        name="Lembrete de pagamento (antecedência)",
+        description="Enviado ao cliente cinco dias antes do vencimento.",
+        subject=(
+            "Lembrete: Vencimento "
+            "{{ 'amanhã' if days_left == 1 else 'em ' ~ days_left ~ ' dias' }}"
+        ),
+        sample_context={
+            "client_name": "Ana Pereira",
+            "description": "Honorários advocatícios",
+            "amount": "1500.00",
+            "due_date": "2026-10-31",
+            "days_left": 5,
+        },
+        defaults={"description": None, "amount": None},
+    ),
+    TemplateSpec(
         id="payment_reminder_d1",
         name="Lembrete de pagamento (véspera)",
-        description="Enviado ao cliente um dia antes do vencimento.",
+        description="Antigo lembrete da véspera; mantido para o histórico.",
         subject="Lembrete: Vencimento amanhã",
         sample_context={
             "client_name": "Ana Pereira",
@@ -79,6 +96,17 @@ _SPECS = [
             "due_date": "2026-10-26",
         },
         defaults={"description": None, "amount": None},
+    ),
+    TemplateSpec(
+        id="email_alert",
+        name="Alerta de envio de e-mail",
+        description="Avisa os administradores quando o envio de e-mail para.",
+        subject="Alerta do sistema: {{ title }}",
+        sample_context={
+            "title": "Provedor de e-mail pausado: smtp",
+            "detail": "O provedor smtp falhou várias vezes seguidas e foi pausado.",
+            "occurred_at": "2026-10-28T10:00:00-03:00",
+        },
     ),
     TemplateSpec(
         id="test",

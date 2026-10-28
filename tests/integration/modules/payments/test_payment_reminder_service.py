@@ -4,31 +4,25 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import Session
 
+from app.config.settings import get_settings
 from app.modules.clients.repository import ClientRepository
 from app.modules.email.branding import StaticBrandingProvider
-from app.modules.email.fake_service import FakeEmailService as BaseFakeEmailService
+from app.modules.email.errors import EmailSendError
+from app.modules.email.fake_service import FakeEmailService
 from app.modules.email.renderer import EmailRenderer
-from app.modules.email.sender import TemplatedEmailSender
+from app.modules.email_outbox.model import EmailOutboxItem, EmailStatus
+from app.modules.email_outbox.repository import EmailOutboxRepository
+from app.modules.email_outbox.service import EmailOutboxWorker
 from app.modules.payments.model import PaymentStatus, ReminderKind, ReminderStatus
-from app.modules.payments.repository import PaymentRepository, PaymentReminderRepository
+from app.modules.payments.repository import PaymentReminderRepository, PaymentRepository
+from app.modules.payments.service import PaymentReminderService
 from app.modules.users.repository import UserRepository
 from app.shared.types import Role
 
-# Lembre-se de importar o caminho correto do seu serviço
-from app.modules.payments.service import PaymentReminderService
-
 TODAY = date(2026, 10, 10)
-TOMORROW = TODAY + timedelta(days=1)
-D_MINUS_2 = TODAY + timedelta(days=2)
+IN_5_DAYS = TODAY + timedelta(days=5)
+IN_6_DAYS = TODAY + timedelta(days=6)
 
-class FakeEmailService(BaseFakeEmailService):
-    @property
-    def sent_emails(self) -> list[dict]:
-        return self.sent
-
-
-def _sender(fake: FakeEmailService) -> TemplatedEmailSender:
-    return TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), fake)
 
 @pytest.fixture
 def user_id(db: Session) -> int:
@@ -37,11 +31,24 @@ def user_id(db: Session) -> int:
     )
     return user.id
 
+
 @pytest.fixture
 def client_id(db: Session) -> int:
     return ClientRepository(db).create(name="Maria", email="maria@test.com").id
 
-def make_payment(db: Session, client_id: int, user_id: int, payment_date: date, status: PaymentStatus = PaymentStatus.PENDING):
+
+@pytest.fixture
+def service(db: Session) -> PaymentReminderService:
+    return PaymentReminderService(db)
+
+
+def make_payment(
+    db: Session,
+    client_id: int,
+    user_id: int,
+    payment_date: date,
+    status: PaymentStatus = PaymentStatus.PENDING,
+):
     return PaymentRepository(db).create(
         client_id=client_id,
         payment_date=payment_date,
@@ -51,95 +58,126 @@ def make_payment(db: Session, client_id: int, user_id: int, payment_date: date, 
         status=status,
     )
 
+
+def run_worker(db: Session, service: PaymentReminderService, email) -> int:
+    worker = EmailOutboxWorker(
+        EmailOutboxRepository(db),
+        EmailRenderer(StaticBrandingProvider()),
+        email,
+        get_settings(),
+        on_finished=[service.sync_from_email],
+    )
+    return worker.run_once()
+
+
 class TestPaymentReminderService:
-    def test_envia_em_d_minus_1_e_d_zero_com_templates_corretos(self, db: Session, client_id: int, user_id: int):
+    def test_enfileira_d_minus_5_e_d_zero_com_templates_corretos(
+        self, db, service, client_id, user_id
+    ):
         make_payment(db, client_id, user_id, TODAY)
-        make_payment(db, client_id, user_id, TOMORROW)
-        
-        fake_email = FakeEmailService()
-        service = PaymentReminderService(db, _sender(fake_email))
-        
+        make_payment(db, client_id, user_id, IN_5_DAYS)
+        email = FakeEmailService()
+
         results = service.dispatch(TODAY)
-        
-        assert results["sent"] == 2
-        assert len(fake_email.sent_emails) == 2
-        
-        subjects = [email["subject"] for email in fake_email.sent_emails]
-        assert "Aviso: Vencimento hoje" in subjects
-        assert "Lembrete: Vencimento amanhã" in subjects
-        assert fake_email.sent_emails[0]["to"] == "maria@test.com"
-        html = fake_email.sent_emails[0]["html"]
+        run_worker(db, service, email)
+
+        assert results == {"queued": 2, "no_email": 0}
+        subjects = sorted(m.subject for m in email.messages)
+        assert subjects == ["Aviso: Vencimento hoje", "Lembrete: Vencimento em 5 dias"]
+        assert all(m.to == ["maria@test.com"] for m in email.messages)
+        html = email.messages[0].html
         assert "Maria" in html
         assert "R$ 150,00" in html
         assert "Honorários" in html
-        assert all(m.text for m in fake_email.messages)
 
-    def test_nao_envia_em_d_minus_2(self, db: Session, client_id: int, user_id: int):
-        make_payment(db, client_id, user_id, D_MINUS_2)
-        
-        fake_email = FakeEmailService()
-        service = PaymentReminderService(db, _sender(fake_email))
-        
-        results = service.dispatch(TODAY)
-        
-        assert results["sent"] == 0
-        assert len(fake_email.sent_emails) == 0
+    def test_nao_enfileira_em_d_minus_6(self, db, service, client_id, user_id):
+        make_payment(db, client_id, user_id, IN_6_DAYS)
 
-    def test_rodar_duas_vezes_no_mesmo_dia_envia_so_uma_vez(self, db: Session, client_id: int, user_id: int):
-        make_payment(db, client_id, user_id, TODAY)
-        
-        fake_email = FakeEmailService()
-        service = PaymentReminderService(db, _sender(fake_email))
-        
-        # Primeira execução
-        results_1 = service.dispatch(TODAY)
-        assert results_1["sent"] == 1
-        
-        # Segunda execução logo em seguida
-        results_2 = service.dispatch(TODAY)
-        assert results_2["sent"] == 0
-        assert len(fake_email.sent_emails) == 1
+        assert service.dispatch(TODAY) == {"queued": 0, "no_email": 0}
+        assert db.query(EmailOutboxItem).count() == 0
 
-    def test_cliente_sem_email_nao_envia_e_grava_status_no_email(self, db: Session, user_id: int):
-        client_no_email = ClientRepository(db).create(name="João", email=None).id
-        
-        # Capture o objeto pagamento
-        payment = make_payment(db, client_no_email, user_id, TODAY)
-        
-        fake_email = FakeEmailService()
-        service = PaymentReminderService(db, _sender(fake_email))
-        
-        results = service.dispatch(TODAY)
-        
-        assert results["sent"] == 0
-        assert results["no_email"] == 1
-        assert len(fake_email.sent_emails) == 0
-        
-        # Busque de forma blindada pelo método list_by_payment
-        reminders = PaymentReminderRepository(db).list_by_payment(payment.id)
-        assert reminders[0].status == ReminderStatus.NO_EMAIL
-
-    def test_pagamento_ja_pago_nao_envia(self, db: Session, client_id: int, user_id: int):
-        make_payment(db, client_id, user_id, TODAY, status=PaymentStatus.PAID)
-        
-        fake_email = FakeEmailService()
-        service = PaymentReminderService(db, _sender(fake_email))
-        
-        results = service.dispatch(TODAY)
-        
-        assert results["sent"] == 0
-        assert len(fake_email.sent_emails) == 0
-
-    def test_falha_no_envio_grava_failed(self, db: Session, client_id: int, user_id: int):
-        from app.modules.email.errors import EmailSendError
-
+    def test_lembrete_e_email_entram_juntos_na_fila(
+        self, db, service, client_id, user_id
+    ):
         payment = make_payment(db, client_id, user_id, TODAY)
-        fake_email = FakeEmailService(
-            fail_with=EmailSendError("down", transient=True, failover=True, provider="smtp")
+
+        service.dispatch(TODAY)
+
+        reminder = PaymentReminderRepository(db).list_by_payment(payment.id)[0]
+        item = db.get(EmailOutboxItem, reminder.email_outbox_id)
+        assert reminder.status == ReminderStatus.QUEUED
+        assert item.status == EmailStatus.PENDING
+        assert (item.related_type, item.related_id) == ("payment", payment.id)
+
+    def test_rodar_duas_vezes_no_mesmo_dia_enfileira_so_uma_vez(
+        self, db, service, client_id, user_id
+    ):
+        make_payment(db, client_id, user_id, TODAY)
+
+        assert service.dispatch(TODAY)["queued"] == 1
+        assert service.dispatch(TODAY)["queued"] == 0
+        assert db.query(EmailOutboxItem).count() == 1
+
+    def test_envio_atualiza_lembrete_para_sent(self, db, service, client_id, user_id):
+        payment = make_payment(db, client_id, user_id, TODAY)
+        service.dispatch(TODAY)
+
+        run_worker(db, service, FakeEmailService())
+
+        reminder = PaymentReminderRepository(db).list_by_payment(payment.id)[0]
+        assert reminder.status == ReminderStatus.SENT
+        assert reminder.kind == ReminderKind.D_ZERO
+
+    def test_falha_definitiva_grava_failed(self, db, service, client_id, user_id):
+        payment = make_payment(db, client_id, user_id, TODAY)
+        service.dispatch(TODAY)
+        failing = FakeEmailService(
+            fail_with=EmailSendError(
+                "550 user unknown", transient=False, failover=False, provider="smtp"
+            )
         )
 
-        results = PaymentReminderService(db, _sender(fake_email)).dispatch(TODAY)
+        run_worker(db, service, failing)
 
-        assert results["failed"] == 1
+        reminder = PaymentReminderRepository(db).list_by_payment(payment.id)[0]
+        assert reminder.status == ReminderStatus.FAILED
+        assert "550" in reminder.error_message
+
+    def test_falha_passageira_continua_na_fila(self, db, service, client_id, user_id):
+        payment = make_payment(db, client_id, user_id, TODAY)
+        service.dispatch(TODAY)
+        failing = FakeEmailService(
+            fail_with=EmailSendError(
+                "timeout", transient=True, failover=True, provider="smtp"
+            )
+        )
+
+        run_worker(db, service, failing)
+
+        reminder = PaymentReminderRepository(db).list_by_payment(payment.id)[0]
+        assert reminder.status == ReminderStatus.QUEUED
+
+    def test_cliente_sem_email_nao_envia_e_grava_no_email(self, db, service, user_id):
+        client_no_email = ClientRepository(db).create(name="João", email=None).id
+        payment = make_payment(db, client_no_email, user_id, TODAY)
+
+        results = service.dispatch(TODAY)
+
+        assert results == {"queued": 0, "no_email": 1}
         reminders = PaymentReminderRepository(db).list_by_payment(payment.id)
-        assert reminders[0].status == ReminderStatus.FAILED
+        assert reminders[0].status == ReminderStatus.NO_EMAIL
+        assert db.query(EmailOutboxItem).count() == 0
+
+    def test_pagamento_ja_pago_nao_envia(self, db, service, client_id, user_id):
+        make_payment(db, client_id, user_id, TODAY, status=PaymentStatus.PAID)
+
+        assert service.dispatch(TODAY)["queued"] == 0
+
+    def test_contexto_tem_dias_restantes(self, db, service, client_id, user_id):
+        make_payment(db, client_id, user_id, TODAY + timedelta(days=3))
+
+        service.dispatch(TODAY)
+
+        item = db.query(EmailOutboxItem).one()
+        assert item.template_id == "payment_reminder_d5"
+        assert item.context["days_left"] == 3
