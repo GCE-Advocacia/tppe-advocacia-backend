@@ -67,38 +67,35 @@ class OfficeConfigService:
         after = {changes.get(name, getattr(config, name)) for name in ASSET_FIELDS}
         return self.repository.update_config(changes), before - after
 
-    def _cleanup(self, obsolete: set, base_url: str) -> None:
+    def _cleanup(self, obsolete: set) -> None:
         for url in obsolete:
-            self.logo_storage.delete_url(url, base_url)
+            self.logo_storage.delete_url(url)
 
     def update_logo(
         self,
         file: UploadFile,
-        base_url: str,
         slot: LogoSlot = "landing-light",
         make_default: bool = False,
     ) -> OfficeConfig:
         content = self.preview_logo(file, slot)
-        filename = None
+        key = None
         try:
             with unit_of_work(self.repository.db):
                 config = self.repository.get_config_for_update()
-                filename = self.logo_storage.save(content)
-                url = self.logo_storage.url(filename, base_url)
+                key = self.logo_storage.save(content)
+                url = self.logo_storage.url(key)
                 changes = {LOGO_FIELDS[slot]: url}
                 if make_default:
                     changes[DEFAULT_LOGO_FIELDS[slot]] = url
                 config, obsolete = self._apply_assets(config, changes)
         except Exception:
-            if filename:
-                self.logo_storage.delete(filename)
+            if key:
+                self.logo_storage.delete(key)
             raise
-        self._cleanup(obsolete, base_url)
+        self._cleanup(obsolete)
         return config
 
-    def set_logo_default(
-        self, base_url: str, slot: LogoSlot = "landing-light"
-    ) -> OfficeConfig:
+    def set_logo_default(self, slot: LogoSlot = "landing-light") -> OfficeConfig:
         with unit_of_work(self.repository.db):
             config = self.repository.get_config_for_update()
             current_url = getattr(config, LOGO_FIELDS[slot])
@@ -107,11 +104,11 @@ class OfficeConfigService:
             config, obsolete = self._apply_assets(
                 config, {DEFAULT_LOGO_FIELDS[slot]: current_url}
             )
-        self._cleanup(obsolete, base_url)
+        self._cleanup(obsolete)
         return config
 
     def reset_logo(
-        self, base_url: str, slot: LogoSlot = "landing-light", factory: bool = False
+        self, slot: LogoSlot = "landing-light", factory: bool = False
     ) -> OfficeConfig:
         with unit_of_work(self.repository.db):
             config = self.repository.get_config_for_update()
@@ -123,7 +120,7 @@ class OfficeConfigService:
             if factory:
                 changes[DEFAULT_LOGO_FIELDS[slot]] = None
             config, obsolete = self._apply_assets(config, changes)
-        self._cleanup(obsolete, base_url)
+        self._cleanup(obsolete)
         return config
 
 

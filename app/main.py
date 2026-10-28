@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -24,7 +23,6 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     start_scheduler()
     yield
     shutdown_scheduler()
