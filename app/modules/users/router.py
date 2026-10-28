@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends, Query
 
 from app.modules.users.deps import get_invite_service, get_user_service
 from app.modules.users.invite_model import UserInvite
-from app.modules.users.invite_service import InviteService, invite_status
+from app.modules.users.invite_service import (
+    InviteEmail,
+    InviteService,
+    invite_status,
+)
 from app.modules.users.model import User
 from app.modules.users.schema import InviteSummary, UserCreate, UserRead, UserUpdate
 from app.modules.users.service import UserService
@@ -19,18 +23,28 @@ from app.shared.types import Role
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-def _read(user: User, invite: UserInvite | None) -> UserRead:
+def _read(
+    user: User, invite: UserInvite | None, email: InviteEmail | None = None
+) -> UserRead:
     data = UserRead.model_validate(user)
     status = invite_status(invite)
     if invite is not None and status is not None:
         data.invite = InviteSummary(
-            status=status, sent_at=invite.created_at, expires_at=invite.expires_at
+            status=status,
+            sent_at=invite.created_at,
+            expires_at=invite.expires_at,
+            email_status=email.status if email else None,
+            last_sent_at=email.last_sent_at if email else None,
         )
     return data
 
 
 def _read_one(user: User, service: UserService) -> UserRead:
-    return _read(user, service.latest_invites([user]).get(user.id))
+    return _read(
+        user,
+        service.latest_invites([user]).get(user.id),
+        service.invite_emails([user]).get(user.id),
+    )
 
 
 @router.get(
@@ -51,8 +65,9 @@ def list_users(
         role=role, is_active=is_active, page=page, limit=limit
     )
     invites = service.latest_invites(items)
+    emails = service.invite_emails(items)
     return paginated(
-        [_read(u, invites.get(u.id)) for u in items],
+        [_read(u, invites.get(u.id), emails.get(u.id)) for u in items],
         total=total,
         page=page,
         limit=limit,
@@ -117,8 +132,8 @@ def resend_invite(
     service: UserService = Depends(get_user_service),
     current_user: User = Depends(require_admin),
 ) -> SuccessResponse[UserRead]:
-    invite = invites.resend(user_id, current_user)
-    return ok(_read(service.get_user(user_id), invite))
+    invites.resend(user_id, current_user)
+    return ok(_read_one(service.get_user(user_id), service))
 
 
 @router.delete(

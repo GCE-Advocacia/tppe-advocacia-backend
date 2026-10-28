@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from app.config.settings import Settings
 from app.modules.auth.schema import TokenResponse
-from app.modules.email.errors import EmailSendError
-from app.modules.email.sender import TemplatedEmailSender
+from app.modules.email_outbox.model import EmailOutboxItem, EmailStatus
+from app.modules.email_outbox.service import EmailOutbox
 from app.modules.users.invite_model import UserInvite
 from app.modules.users.invite_repository import InviteRepository
 from app.modules.users.model import User
@@ -26,11 +26,22 @@ from app.shared.types import UserStatus
 
 logger = logging.getLogger(__name__)
 
+INVITE_TEMPLATE = "user_invite"
+INVITE_RELATED_TYPE = "user"
+
 
 @dataclass(frozen=True)
 class IssuedInvite:
     token: str
     expires_at: datetime
+
+
+@dataclass(frozen=True)
+class InviteEmail:
+    """Situação do e-mail do convite mais recente, vinda da fila."""
+
+    status: EmailStatus
+    last_sent_at: datetime | None
 
 
 def invite_status(invite: UserInvite | None, now: datetime | None = None) -> str | None:
@@ -51,34 +62,49 @@ class InviteService:
         self,
         invites: InviteRepository,
         users: UserRepository,
-        email_sender: TemplatedEmailSender,
+        outbox: EmailOutbox,
         settings: Settings,
         tokens: OneTimeTokenService | None = None,
     ) -> None:
         self.invites = invites
         self.users = users
-        self.email_sender = email_sender
+        self.outbox = outbox
         self.settings = settings
         self.tokens = tokens or OneTimeTokenService()
 
     # ---- emissão (dentro da transação de quem chama) ---------------------
 
     def issue(self, user: User, created_by: User | None) -> IssuedInvite:
-        """Revoga o convite ativo (se houver) e cria outro. Não comita:
-        quem chama envolve em ``unit_of_work``. O token em texto só existe no
-        retorno, para montar o link."""
+        """Revoga o convite ativo (se houver), cria outro e põe o e-mail na
+        fila. Não comita: quem chama envolve em ``unit_of_work``, então
+        usuário, convite e e-mail entram ou saem juntos. O token em texto só
+        existe no retorno e no contexto do item da fila até o envio."""
         now = datetime.now(timezone.utc)
         active = self.invites.get_active_by_user(user.id)
         if active is not None:
             self.invites.update(active, {"revoked_at": now})
+            self.outbox.cancel_pending(f"invite:{active.id}")
         token, token_hash = self.tokens.generate()
         expires_at = self.tokens.expires_at(
             timedelta(hours=self.settings.invite_expire_hours), now
         )
-        self.invites.create(
+        invite = self.invites.create(
             user_id=user.id,
             token_hash=token_hash,
             expires_at=expires_at,
+            created_by=created_by.id if created_by else None,
+        )
+        self.outbox.enqueue(
+            INVITE_TEMPLATE,
+            {
+                "user_name": user.name,
+                "invite_link": self.invite_link(token),
+                "expires_at": expires_at.isoformat(),
+                "invited_by": created_by.name if created_by else None,
+            },
+            to=user.email,
+            related=(INVITE_RELATED_TYPE, user.id),
+            idempotency_key=f"invite:{invite.id}",
             created_by=created_by.id if created_by else None,
         )
         return IssuedInvite(token=token, expires_at=expires_at)
@@ -86,35 +112,30 @@ class InviteService:
     def invite_link(self, token: str) -> str:
         return f"{self.settings.frontend_url}/convite/{token}"
 
-    def send_invite_email(
-        self, user: User, issued: IssuedInvite, invited_by: str | None = None
-    ) -> bool:
-        """Envia fora da transação. Falha de e-mail não desfaz o convite: o
-        admin vê o convite pendente e pode reenviar.
-
-        TODO(outbox): trocar por ``EmailOutbox.enqueue`` (Pessoa 3) dentro da
-        transação de ``issue``; aí o e-mail fica na fila em vez de se perder.
-        """
-        try:
-            self.email_sender.send(
-                "user_invite",
-                {
-                    "user_name": user.name,
-                    "invite_link": self.invite_link(issued.token),
-                    "expires_at": issued.expires_at.isoformat(),
-                    "invited_by": invited_by,
-                },
-                to=user.email,
-            )
-        except EmailSendError:
-            logger.exception("Invite email to user %s failed", user.id)
-            return False
-        return True
-
     # ---- ações do admin ---------------------------------------------------
 
     def latest_by_users(self, user_ids: list[int]) -> dict[int, UserInvite]:
         return self.invites.get_latest_by_users(user_ids)
+
+    def emails_by_users(self, user_ids: list[int]) -> dict[int, InviteEmail]:
+        """Status do último e-mail de convite e data do último envio que
+        saiu de fato, por usuário."""
+        items = self.outbox.repository.list_related(
+            INVITE_RELATED_TYPE, user_ids, INVITE_TEMPLATE
+        )
+        latest: dict[int, EmailOutboxItem] = {}
+        last_sent: dict[int, datetime] = {}
+        # Em ordem crescente, o último de cada usuário sobrescreve os anteriores.
+        for item in items:
+            latest[item.related_id] = item
+            if item.status == EmailStatus.SENT and item.sent_at is not None:
+                last_sent[item.related_id] = item.sent_at
+        return {
+            user_id: InviteEmail(
+                status=item.status, last_sent_at=last_sent.get(user_id)
+            )
+            for user_id, item in latest.items()
+        }
 
     def _get_invited_user(self, user_id: int) -> User:
         user = self.users.get_by_id(user_id)
@@ -132,8 +153,7 @@ class InviteService:
             raise InviteResendLimitError(limit)
 
         with unit_of_work(self.invites.db):
-            issued = self.issue(user, admin)
-        self.send_invite_email(user, issued, admin.name)
+            self.issue(user, admin)
         return self.invites.get_active_by_user(user.id)
 
     def cancel(self, user_id: int, admin: User) -> None:
@@ -143,6 +163,7 @@ class InviteService:
             raise InviteNotFoundError()
         with unit_of_work(self.invites.db):
             self.invites.update(active, {"revoked_at": datetime.now(timezone.utc)})
+            self.outbox.cancel_pending(f"invite:{active.id}")
         logger.info("Invite of user %s cancelled by %s", user.id, admin.id)
 
     # ---- fluxo público ----------------------------------------------------

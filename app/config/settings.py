@@ -64,6 +64,27 @@ class Settings(BaseSettings):
         default=[], validation_alias="EMAIL_ENCRYPTION_KEYS"
     )
 
+    # Fila de saída: o worker do scheduler envia em lotes e tenta de novo
+    # falhas passageiras com espera crescente até virar DEAD.
+    email_outbox_interval_seconds: int = Field(
+        30, ge=5, le=3600, validation_alias="EMAIL_OUTBOX_INTERVAL_SECONDS"
+    )
+    email_outbox_batch_size: int = Field(
+        50, ge=1, le=500, validation_alias="EMAIL_OUTBOX_BATCH_SIZE"
+    )
+    email_outbox_stuck_minutes: int = Field(
+        10, ge=1, le=1440, validation_alias="EMAIL_OUTBOX_STUCK_MINUTES"
+    )
+    email_retry_base_seconds: int = Field(
+        60, ge=1, validation_alias="EMAIL_RETRY_BASE_SECONDS"
+    )
+    email_retry_max_seconds: int = Field(
+        21600, ge=1, validation_alias="EMAIL_RETRY_MAX_SECONDS"
+    )
+    email_max_attempts: int = Field(
+        6, ge=1, le=50, validation_alias="EMAIL_MAX_ATTEMPTS"
+    )
+
     resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")
     resend_from_email: str = Field(
         "onboarding@resend.dev", validation_alias="RESEND_FROM_EMAIL"

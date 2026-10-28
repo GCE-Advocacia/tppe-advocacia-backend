@@ -18,6 +18,8 @@ from app.modules.deadlines.repository import (
     DeadlineRepository,
 )
 from app.modules.deadlines.service import DeadlineService
+from app.modules.email_outbox.repository import EmailOutboxRepository
+from app.modules.email_outbox.service import EmailOutboxWorker
 from app.modules.external_api_logs.notifier import ExternalApiFailureNotifier
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
 from app.modules.forensic_holidays.repository import ForensicHolidayRepository
@@ -26,7 +28,11 @@ from app.modules.notifications.repository import NotificationPreferenceRepositor
 from app.modules.notifications.service import NotificationService
 from app.modules.processes.repository import ProcessRepository
 from app.modules.users.repository import UserRepository
-from app.shared.deps.email import build_templated_sender
+from app.shared.deps.email import (
+    build_templated_sender,
+    get_email_renderer,
+    get_email_service,
+)
 from app.shared.deps.google import get_google_calendar_client
 from app.modules.payments.service import PaymentReminderService
 
@@ -152,3 +158,20 @@ def dispatch_payment_reminders_job() -> None:
         )
     except Exception:
         logger.exception("Payment reminders job failed")
+
+
+def process_email_outbox_job() -> None:
+    """Envia o lote pronto da fila de saída de e-mails."""
+    try:
+        with SessionLocal() as db:
+            worker = EmailOutboxWorker(
+                EmailOutboxRepository(db),
+                get_email_renderer(),
+                get_email_service(),
+                get_settings(),
+            )
+            sent = worker.run_once()
+        if sent:
+            logger.info("Email outbox job finished — %d email(s) sent", sent)
+    except Exception:
+        logger.exception("Email outbox job failed")

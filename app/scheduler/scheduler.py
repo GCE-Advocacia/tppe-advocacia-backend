@@ -19,6 +19,7 @@ from app.scheduler.jobs import (
     dispatch_deadline_alerts_job,
     dispatch_google_pull_job,
     dispatch_payment_reminders_job,
+    process_email_outbox_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,14 +68,24 @@ def start_scheduler() -> None:
         id="payment_reminders",
         replace_existing=True,
     )
+    _scheduler.add_job(
+        process_email_outbox_job,
+        trigger="interval",
+        seconds=settings.email_outbox_interval_seconds,
+        id="email_outbox",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
     _scheduler.start()
     logger.info(
         "Scheduler started — deadline alerts and payment reminders cron at %02d:%02d; "
-        "DataJud sync every %dh; Google pull every %dmin",
+        "DataJud sync every %dh; Google pull every %dmin; email outbox every %ds",
         hour,
         minute,
         settings.datajud_sync_interval_hours,
         settings.google_pull_interval_minutes,
+        settings.email_outbox_interval_seconds,
     )
 
 

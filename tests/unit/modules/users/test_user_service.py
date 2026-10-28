@@ -5,8 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.config.settings import get_settings
-from app.modules.email.errors import EmailSendError
-from app.modules.email.fake_service import FakeEmailService
+from app.modules.email_outbox.service import EmailOutbox
 from app.modules.users.invite_service import InviteService
 from app.modules.users.model import User
 from app.modules.users.schema import UserCreate, UserUpdate
@@ -48,19 +47,8 @@ def repo():
 
 
 @pytest.fixture
-def email():
-    from app.modules.email.fake_service import FakeEmailService
-
-    return FakeEmailService()
-
-
-@pytest.fixture
-def email_sender(email):
-    from app.modules.email.branding import StaticBrandingProvider
-    from app.modules.email.renderer import EmailRenderer
-    from app.modules.email.sender import TemplatedEmailSender
-
-    return TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), email)
+def outbox():
+    return MagicMock(spec=EmailOutbox)
 
 
 @pytest.fixture
@@ -76,8 +64,8 @@ def invite_repo():
 
 
 @pytest.fixture
-def invites(invite_repo, repo, email_sender):
-    return InviteService(invite_repo, repo, email_sender, get_settings())
+def invites(invite_repo, repo, outbox):
+    return InviteService(invite_repo, repo, outbox, get_settings())
 
 
 @pytest.fixture
@@ -157,7 +145,7 @@ class TestCreateUser:
                 created_by=make_user(id=1),
             )
 
-    def test_does_not_send_email_when_integrity_error(self, service, repo, email):
+    def test_does_not_enqueue_email_when_integrity_error(self, service, repo, outbox):
         repo.create.side_effect = make_integrity_error()
 
         with pytest.raises(EmailAlreadyExistsError):
@@ -166,7 +154,7 @@ class TestCreateUser:
                 created_by=make_user(id=1),
             )
 
-        assert email.sent == []
+        outbox.enqueue.assert_not_called()
 
     def test_creates_invited_user_without_password(self, service, repo):
         repo.create.return_value = make_user()
@@ -191,39 +179,28 @@ class TestCreateUser:
         assert kwargs["created_by"] == 1
         assert len(kwargs["token_hash"]) == 64
 
-    def test_sends_invite_link_without_password(
-        self, service, repo, email, invite_repo
+    def test_enqueues_invite_link_without_password(
+        self, service, repo, outbox, invite_repo
     ):
-        repo.create.return_value = make_user(email="alice@test.com")
+        repo.create.return_value = make_user(id=10, email="alice@test.com")
+        invite_repo.create.return_value = MagicMock(id=77)
 
         service.create_user(
             UserCreate(name="Alice", email="alice@test.com"), created_by=make_user(id=1)
         )
 
-        assert len(email.messages) == 1
-        message = email.messages[0]
-        assert message.to == ["alice@test.com"]
-        assert "senha" not in message.subject.lower()
-        assert "senha temporária" not in message.text.lower()
+        outbox.enqueue.assert_called_once()
+        call = outbox.enqueue.call_args
+        template_id, context = call.args
+        assert template_id == "user_invite"
+        assert call.kwargs["to"] == "alice@test.com"
+        assert call.kwargs["related"] == ("user", 10)
+        assert call.kwargs["idempotency_key"] == "invite:77"
+        assert "password" not in context
         # O link leva o token cujo hash foi gravado no banco.
-        token = message.text.split("/convite/")[1].split()[0]
+        token = context["invite_link"].split("/convite/")[1]
         token_hash = invite_repo.create.call_args.kwargs["token_hash"]
         assert OneTimeTokenService.hash(token) == token_hash
-
-    def test_email_failure_does_not_block_creation(self, service, repo, invites, audit):
-        invites.email_sender.email_service = FakeEmailService(
-            fail_with=EmailSendError(
-                "down", transient=True, failover=True, provider="smtp"
-            )
-        )
-        repo.create.return_value = make_user(id=10)
-
-        user = service.create_user(
-            UserCreate(name="Alice", email="alice@test.com"), created_by=make_user(id=1)
-        )
-
-        assert user.id == 10
-        audit.log_user_created.assert_called_once()
 
     def test_always_assigns_role_user(self, service, repo):
         repo.create.return_value = make_user()

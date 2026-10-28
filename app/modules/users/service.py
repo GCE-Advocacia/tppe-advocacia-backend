@@ -2,7 +2,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.users.invite_model import UserInvite
-from app.modules.users.invite_service import InviteService
+from app.modules.users.invite_service import InviteEmail, InviteService
 from app.modules.users.model import User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schema import UserCreate, UserUpdate
@@ -36,6 +36,9 @@ class UserService:
     def latest_invites(self, users: list[User]) -> dict[int, UserInvite]:
         return self.invites.latest_by_users([u.id for u in users])
 
+    def invite_emails(self, users: list[User]) -> dict[int, InviteEmail]:
+        return self.invites.emails_by_users([u.id for u in users])
+
     def get_user(self, user_id: int) -> User:
         user = self.repository.get_by_id(user_id)
         if user is None:
@@ -45,8 +48,8 @@ class UserService:
     def create_user(self, payload: UserCreate, created_by: User) -> User:
         """Cria o usuário como ``INVITED``, sem senha, com um convite por link.
 
-        Usuário e convite entram na mesma transação; o e-mail sai depois e,
-        se falhar, o usuário continua criado (o admin pode reenviar).
+        Usuário, convite e e-mail na fila entram na mesma transação; o
+        worker do scheduler envia depois, então SMTP fora não derruba a rota.
         """
         try:
             with unit_of_work(self.repository.db):
@@ -58,11 +61,10 @@ class UserService:
                     created_by=created_by.id,
                     status=UserStatus.INVITED,
                 )
-                issued = self.invites.issue(user, created_by)
+                self.invites.issue(user, created_by)
         except IntegrityError as exc:
             raise EmailAlreadyExistsError() from exc
 
-        self.invites.send_invite_email(user, issued, created_by.name)
         self.audit.log_user_created(user, created_by)
         return user
 

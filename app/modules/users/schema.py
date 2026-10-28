@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.modules.email_outbox.model import EmailStatus
 from app.shared.security.password import NewPassword
 from app.shared.types import Role, UserStatus
 
@@ -23,11 +24,18 @@ class UserUpdate(BaseModel):
 
 
 class InviteSummary(BaseModel):
-    """Último convite do usuário, para a listagem do admin."""
+    """Último convite do usuário, para a listagem do admin.
+
+    ``sent_at`` é quando o convite foi gerado; ``last_sent_at`` é quando o
+    e-mail saiu de fato (nulo enquanto está na fila) e ``email_status`` é a
+    situação do e-mail do convite mais recente.
+    """
 
     status: InviteStatus
     sent_at: datetime
     expires_at: datetime
+    email_status: EmailStatus | None = None
+    last_sent_at: datetime | None = None
 
 
 class UserRead(BaseModel):
