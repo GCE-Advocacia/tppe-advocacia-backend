@@ -106,6 +106,13 @@ class TestFakeDriveClient:
         fake.trash_file(folder)
         assert fake.folder_exists(folder) is False
 
+    def test_folder_inside_trashed_folder_is_trashed(self):
+        fake = FakeDriveClient()
+        root = fake.create_folder("Raiz", None)
+        child = fake.create_folder("Filha", root)
+        fake.trash_file(root)
+        assert fake.folder_exists(child) is False
+
     def test_upload_and_download_roundtrip(self):
         fake = FakeDriveClient()
         folder = fake.create_folder("Pasta", None)

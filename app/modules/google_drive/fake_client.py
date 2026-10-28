@@ -26,7 +26,13 @@ class FakeDriveClient:
 
     def folder_exists(self, folder_id: str) -> bool:
         self._check()
-        return folder_id in self.folders and folder_id not in self.trashed
+        # Como no Drive: o que está dentro de uma pasta na lixeira também está.
+        current: str | None = folder_id
+        while current is not None:
+            if current not in self.folders or current in self.trashed:
+                return False
+            current = self.folders[current][1]
+        return True
 
     def upload_file(
         self, name: str, content: bytes, mime_type: str, parent_id: str

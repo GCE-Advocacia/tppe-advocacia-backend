@@ -18,8 +18,17 @@ class GoogleOAuthFlow:
     configuradas — o service só a instancia quando `google_configured`.
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        scopes: list[str] = SCOPES,
+        redirect_uri: str | None = None,
+        include_granted_scopes: bool = True,
+    ) -> None:
         self._settings = settings
+        self._scopes = scopes
+        self._redirect_uri = redirect_uri or settings.google_redirect_uri
+        self._include_granted_scopes = include_granted_scopes
 
     def _client_config(self) -> dict:
         return {
@@ -28,24 +37,23 @@ class GoogleOAuthFlow:
                 "client_secret": self._settings.google_client_secret,
                 "auth_uri": _AUTH_URI,
                 "token_uri": _TOKEN_URI,
-                "redirect_uris": [self._settings.google_redirect_uri],
+                "redirect_uris": [self._redirect_uri],
             }
         }
 
     def _flow(self, state: str | None = None) -> Flow:
         flow = Flow.from_client_config(
-            self._client_config(), scopes=SCOPES, state=state
+            self._client_config(), scopes=self._scopes, state=state
         )
-        flow.redirect_uri = self._settings.google_redirect_uri
+        flow.redirect_uri = self._redirect_uri
         return flow
 
     def build_auth_url(self, state: str) -> str:
         """URL de consentimento do Google. `state` carrega o user_id assinado."""
-        url, _ = self._flow(state=state).authorization_url(
-            access_type="offline",
-            prompt="consent",
-            include_granted_scopes="true",
-        )
+        options = {"access_type": "offline", "prompt": "consent"}
+        if self._include_granted_scopes:
+            options["include_granted_scopes"] = "true"
+        url, _ = self._flow(state=state).authorization_url(**options)
         return url
 
     def exchange_code(self, code: str) -> tuple[str, str]:
@@ -57,5 +65,5 @@ class GoogleOAuthFlow:
         flow = self._flow()
         flow.fetch_token(code=code)
         credentials = flow.credentials
-        scope = " ".join(credentials.scopes or SCOPES)
+        scope = " ".join(credentials.scopes or self._scopes)
         return credentials.refresh_token, scope
