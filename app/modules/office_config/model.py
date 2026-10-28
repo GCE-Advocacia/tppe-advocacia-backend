@@ -12,6 +12,9 @@ class OfficeConfig(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     office_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    button_radius: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="6px", server_default="6px"
+    )
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     system_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
