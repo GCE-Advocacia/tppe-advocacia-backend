@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     documents_upload_dir: str = Field(
         "uploads/documents", validation_alias="DOCUMENTS_UPLOAD_DIR"
     )
+    document_storage: Literal["local", "drive"] = Field(
+        "local", validation_alias="DOCUMENT_STORAGE", validate_default=True
+    )
     document_max_file_size_mb: int = Field(
         20, validation_alias="DOCUMENT_MAX_FILE_SIZE_MB"
     )
@@ -132,6 +135,10 @@ class Settings(BaseSettings):
     )
     google_token_encryption_key: str = Field(
         "", validation_alias="GOOGLE_TOKEN_ENCRYPTION_KEY"
+    )
+    google_drive_redirect_uri: str = Field(
+        "http://localhost:8000/api/v1/integrations/google-drive/callback",
+        validation_alias="GOOGLE_DRIVE_REDIRECT_URI",
     )
     google_pull_interval_minutes: int = Field(
         5,
@@ -171,6 +178,17 @@ class Settings(BaseSettings):
             raise ValueError("MEDIA_BUCKET must be set in production")
         return media_bucket
 
+    @field_validator("document_storage")
+    @classmethod
+    def drive_documents_in_production(
+        cls, document_storage: str, info: ValidationInfo
+    ) -> str:
+        # O disco do Render é temporário: em produção os documentos só podem
+        # ir para o Google Drive.
+        if info.data.get("app_env") == "production" and document_storage != "drive":
+            raise ValueError("DOCUMENT_STORAGE must be 'drive' in production")
+        return document_storage
+
     @field_validator("datajud_sync_user_id", mode="before")
     @classmethod
     def empty_str_to_none(cls, value: object) -> object:
@@ -202,6 +220,15 @@ class Settings(BaseSettings):
             and self.google_client_secret
             and self.google_redirect_uri
             and self.google_token_encryption_key
+        )
+
+    @property
+    def google_drive_configured(self) -> bool:
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_token_encryption_key
+            and self.google_drive_redirect_uri
         )
 
     @property
