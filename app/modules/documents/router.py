@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, Query, Response, UploadFile, status
 
 from app.modules.documents.deps import get_process_document_service
 from app.modules.documents.schema import ProcessDocumentRead
@@ -21,7 +22,7 @@ router = APIRouter(tags=["Process Documents"])
     "/processes/{process_id}/documents",
     response_model=SuccessResponse[ProcessDocumentRead],
     status_code=status.HTTP_201_CREATED,
-    responses=error_responses(401, 404, 413, 415, 422),
+    responses=error_responses(401, 404, 409, 413, 415, 422, 503),
     summary="Anexa um documento ao processo",
 )
 def upload_process_document(
@@ -58,8 +59,8 @@ def list_process_documents(
 
 @router.get(
     "/processes/{process_id}/documents/{document_id}/download",
-    response_class=FileResponse,
-    responses=error_responses(401, 404),
+    response_class=Response,
+    responses=error_responses(401, 404, 409, 503),
     summary="Baixa um documento do processo",
 )
 def download_process_document(
@@ -67,10 +68,16 @@ def download_process_document(
     document_id: int,
     service: ProcessDocumentService = Depends(get_process_document_service),
     _: User = Depends(get_current_user),
-) -> FileResponse:
-    document, path = service.get_download(process_id, document_id)
-    return FileResponse(
-        path, media_type=document.mime_type, filename=document.original_name
+) -> Response:
+    document, content = service.get_download(process_id, document_id)
+    return Response(
+        content,
+        media_type=document.mime_type,
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename*=UTF-8''{quote(document.original_name)}"
+            )
+        },
     )
 
 
