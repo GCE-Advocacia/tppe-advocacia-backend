@@ -55,6 +55,10 @@ class OfficeConfigUpdate(BaseModel):
     color_buttons: str | None = Field(None, max_length=50)
     color_buttons_hover: str | None = Field(None, max_length=50)
     color_buttons_text: str | None = Field(None, max_length=50)
+    system_uses_landing_buttons: bool | None = None
+    color_buttons_system: str | None = Field(None, max_length=50)
+    color_buttons_system_hover: str | None = Field(None, max_length=50)
+    color_buttons_system_text: str | None = Field(None, max_length=50)
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
@@ -82,6 +86,10 @@ class OfficeConfigRead(BaseModel):
     logo_same_for_themes: bool = True
     system_logo_same_for_themes: bool = True
     system_uses_landing_logo: bool = True
+    system_uses_landing_buttons: bool = True
+    color_buttons_system: str | None = None
+    color_buttons_system_hover: str | None = None
+    color_buttons_system_text: str | None = None
     cnpj: str | None
     address: str | None
     phone: str | None
@@ -143,6 +151,10 @@ class ThemeCreate(BaseModel):
     color_buttons: str = Field(max_length=50)
     color_buttons_hover: str = Field(max_length=50)
     color_buttons_text: str = Field(max_length=50)
+    system_uses_landing_buttons: bool = True
+    color_buttons_system: str | None = Field(None, max_length=50)
+    color_buttons_system_hover: str | None = Field(None, max_length=50)
+    color_buttons_system_text: str | None = Field(None, max_length=50)
     color_title_primary: str = Field(max_length=50)
     color_title_secondary: str = Field(max_length=50)
     color_text_primary: str = Field(max_length=50)
@@ -161,6 +173,10 @@ class ThemeUpdate(BaseModel):
     color_buttons: str | None = Field(None, max_length=50)
     color_buttons_hover: str | None = Field(None, max_length=50)
     color_buttons_text: str | None = Field(None, max_length=50)
+    system_uses_landing_buttons: bool | None = None
+    color_buttons_system: str | None = Field(None, max_length=50)
+    color_buttons_system_hover: str | None = Field(None, max_length=50)
+    color_buttons_system_text: str | None = Field(None, max_length=50)
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
@@ -182,6 +198,10 @@ class ThemeRead(BaseModel):
     color_buttons: str
     color_buttons_hover: str
     color_buttons_text: str
+    system_uses_landing_buttons: bool = True
+    color_buttons_system: str | None = None
+    color_buttons_system_hover: str | None = None
+    color_buttons_system_text: str | None = None
     color_title_primary: str
     color_title_secondary: str
     color_text_primary: str
