@@ -25,14 +25,4 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
 
-CMD ["gunicorn", "app.main:app", \
-    "--workers", "3", \
-    "--worker-class", "uvicorn.workers.UvicornWorker", \
-    "--bind", "0.0.0.0:8000", \
-    "--timeout", "120", \
-    "--max-requests", "1000", \
-    "--max-requests-jitter", "100", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-", \
-    "--log-level", "info"]
-                          
+CMD ["sh", "scripts/start.sh"]
