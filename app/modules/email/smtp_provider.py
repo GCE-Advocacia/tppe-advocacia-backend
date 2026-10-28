@@ -29,6 +29,8 @@ class SmtpConfig:
     username: str | None = None
     password: str | None = None
     from_name: str | None = None
+    # Responder-para padrão do perfil; o da mensagem tem prioridade.
+    reply_to: str | None = None
     timeout_seconds: float = 15.0
     max_size_mb: int = 10
 
@@ -109,7 +111,12 @@ class SmtpProvider:
 
     def deliver(self, message: EmailMessage) -> SendResult:
         ensure_size_limit(message, self.config.max_size_mb, self.name)
-        mime = build_mime(message, self.config.from_email, self.config.from_name)
+        mime = build_mime(
+            message,
+            self.config.from_email,
+            self.config.from_name,
+            default_reply_to=self.config.reply_to,
+        )
         started = time.monotonic()
 
         in_batch = self._conn is not None

@@ -17,7 +17,7 @@ services:
       SMTP_SECURITY: none
       SMTP_USERNAME: ""
       SMTP_PASSWORD: ""
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@advocacia.local}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@example.com}
     depends_on:
       mailpit:
         condition: service_started
@@ -30,7 +30,7 @@ services:
       SMTP_SECURITY: none
       SMTP_USERNAME: ""
       SMTP_PASSWORD: ""
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@advocacia.local}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@example.com}
     depends_on:
       mailpit:
         condition: service_started

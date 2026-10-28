@@ -9,6 +9,7 @@ from app.modules.datajud.router import router as datajud_router
 from app.modules.deadlines.router import router as deadlines_router
 from app.modules.documents.router import router as documents_router
 from app.modules.email.router import router as email_router
+from app.modules.email_settings.router import router as email_settings_router
 from app.modules.external_api_logs.router import router as external_api_logs_router
 from app.modules.finance.router import router as finance_router
 from app.modules.forensic_holidays.router import router as forensic_holidays_router
@@ -23,6 +24,7 @@ from app.modules.payments.router import router as payments_router
 from app.modules.processes.router import router as processes_router
 from app.modules.processes.router import router as processes_router
 from app.modules.tasks.router import router as tasks_router
+from app.modules.users.invite_router import router as invites_router
 from app.modules.users.router import router as users_router
 
 api_router = APIRouter()
@@ -30,6 +32,7 @@ api_router.include_router(health_router)
 api_router.include_router(leads_router)
 api_router.include_router(auth_router)
 api_router.include_router(users_router)
+api_router.include_router(invites_router)
 api_router.include_router(audit_logs_router)
 api_router.include_router(office_config_router)
 api_router.include_router(media_router)
@@ -48,3 +51,4 @@ api_router.include_router(payments_router)
 api_router.include_router(google_calendar_router)
 api_router.include_router(finance_router)
 api_router.include_router(email_router)
+api_router.include_router(email_settings_router)

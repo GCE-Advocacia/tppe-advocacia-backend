@@ -1,9 +1,6 @@
-import hashlib
-import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 import bcrypt
-import jwt
 
 from app.config.settings import get_settings
 from app.modules.auth.schema import (
@@ -20,23 +17,34 @@ from app.shared.exceptions import (
     InactiveUserError,
     InvalidCredentialsError,
     InvalidResetTokenError,
+    InviteNotAcceptedError,
 )
+from app.shared.security.one_time_token import OneTimeTokenService
+from app.shared.security.password import hash_password, issue_access_token
+from app.shared.types import UserStatus
 
 settings = get_settings()
 
 
 class AuthService:
     def __init__(
-        self, user_repository: UserRepository, email_sender: TemplatedEmailSender
+        self,
+        user_repository: UserRepository,
+        email_sender: TemplatedEmailSender,
+        tokens: OneTimeTokenService | None = None,
     ) -> None:
         self.user_repository = user_repository
         self.email_sender = email_sender
+        self.tokens = tokens or OneTimeTokenService()
 
     def login(self, payload: LoginRequest) -> TokenResponse:
         user = self.user_repository.get_by_email(payload.email)
 
         if user is None:
             raise InvalidCredentialsError()
+
+        if user.status == UserStatus.INVITED or not user.hashed_password:
+            raise InviteNotAcceptedError()
 
         password_matches = bcrypt.checkpw(
             payload.password.encode("utf-8"),
@@ -48,28 +56,17 @@ class AuthService:
         if not user.is_active:
             raise InactiveUserError()
 
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.jwt_expire_minutes
-        )
-        token_data = {
-            "sub": str(user.id),
-            "role": user.role.value,
-            "can_view_payments": user.can_view_payments,
-            "exp": expire,
-        }
-        token = jwt.encode(token_data, settings.jwt_secret_key, algorithm="HS256")
-
-        return TokenResponse(access_token=token)
+        return TokenResponse(access_token=issue_access_token(user))
 
     def request_reset(self, payload: PasswordResetRequest) -> None:
         user = self.user_repository.get_by_email(payload.email)
-        if user is None or not user.is_active:
+        # Convidado ainda não tem senha: o caminho dele é o link do convite.
+        if user is None or not user.is_active or user.status == UserStatus.INVITED:
             return
 
-        token = secrets.token_urlsafe(32)
-        token_hash = hashlib.sha256(token.encode()).hexdigest()
-        expires_at = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.password_reset_expire_minutes
+        token, token_hash = self.tokens.generate()
+        expires_at = self.tokens.expires_at(
+            timedelta(minutes=settings.password_reset_expire_minutes)
         )
         with unit_of_work(self.user_repository.db):
             self.user_repository.update(
@@ -92,26 +89,20 @@ class AuthService:
         )
 
     def confirm_reset(self, payload: PasswordResetConfirm) -> None:
-        token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+        token_hash = self.tokens.hash(payload.token)
         user = self.user_repository.get_by_reset_token_hash(token_hash)
 
         if user is None:
             raise InvalidResetTokenError()
 
-        expires_at = user.reset_token_expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at < datetime.now(timezone.utc):
+        if self.tokens.is_expired(user.reset_token_expires_at):
             raise ExpiredResetTokenError()
 
-        new_hashed = bcrypt.hashpw(
-            payload.new_password.encode(), bcrypt.gensalt()
-        ).decode()
         with unit_of_work(self.user_repository.db):
             self.user_repository.update(
                 user,
                 {
-                    "hashed_password": new_hashed,
+                    "hashed_password": hash_password(payload.new_password),
                     "reset_token_hash": None,  # nosec B105
                     "reset_token_expires_at": None,  # nosec B105
                 },

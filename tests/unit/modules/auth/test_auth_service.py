@@ -21,8 +21,9 @@ from app.shared.exceptions import (
     InactiveUserError,
     InvalidCredentialsError,
     InvalidResetTokenError,
+    InviteNotAcceptedError,
 )
-from app.shared.types import Role
+from app.shared.types import Role, UserStatus
 
 
 def make_user(**kwargs) -> User:
@@ -34,6 +35,7 @@ def make_user(**kwargs) -> User:
             b"correct_password", bcrypt.gensalt()
         ).decode(),
         "role": Role.USER,
+        "status": UserStatus.ACTIVE,
         "is_active": True,
         "can_view_payments": False,
         "reset_token_hash": None,
@@ -92,6 +94,14 @@ class TestLogin:
         result = service.login(make_login_payload("correct_password"))
 
         assert result.access_token is not None
+
+    def test_invited_user_gets_clear_error(self, service, repo):
+        repo.get_by_email.return_value = make_user(
+            status=UserStatus.INVITED, hashed_password=None
+        )
+
+        with pytest.raises(InviteNotAcceptedError):
+            service.login(make_login_payload())
 
     def test_raises_when_user_inactive(self, service, repo):
         repo.get_by_email.return_value = make_user(is_active=False)

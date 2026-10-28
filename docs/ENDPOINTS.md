@@ -348,7 +348,9 @@ Lista usuários com filtros opcionais e paginação.
 
 ### `POST /api/v1/users`
 
-Cria um novo usuário com papel `USER`. O sistema gera uma senha temporária e a envia ao novo usuário por e-mail. Para promover a `ADMIN`, use `PATCH /api/v1/users/{id}` após a criação.
+Cria um novo usuário com papel `USER` e status `INVITED`, sem senha. O sistema envia um e-mail de convite com um link de uso único (`/convite/{token}`) que expira em `INVITE_EXPIRE_HOURS` (padrão 48 h); o usuário define a própria senha por ele. Se o e-mail falhar, o usuário é criado do mesmo jeito e o convite fica pendente para reenvio. Para promover a `ADMIN`, use `PATCH /api/v1/users/{id}` após a criação.
+
+As respostas de usuário trazem `status` (`INVITED` | `ACTIVE`) e `invite` (último convite: `status` `PENDING` | `EXPIRED` | `USED` | `CANCELLED`, `sent_at`, `expires_at`; `null` se nunca houve convite).
 
 **Body**
 
@@ -384,6 +386,47 @@ Cria um novo usuário com papel `USER`. O sistema gera uma senha temporária e a
 | 403    | `FORBIDDEN`            | Usuário autenticado não é ADMIN |
 | 409    | `EMAIL_ALREADY_EXISTS` | E-mail já cadastrado            |
 | 422    | `VALIDATION_ERROR`     | Body inválido                   |
+
+---
+
+### `POST /api/v1/users/{id}/invite/resend`
+
+ADMIN. Revoga o convite ativo (o link anterior deixa de valer), cria outro e envia. Limite de `INVITE_RESEND_LIMIT_PER_HOUR` (padrão 3) convites por hora por usuário, contando o da criação. Devolve o usuário com o `invite` novo.
+
+| Status | Code                  | Situação                          |
+| ------ | --------------------- | --------------------------------- |
+| 400    | `USER_NOT_INVITED`    | Usuário já ativou a conta         |
+| 404    | `USER_NOT_FOUND`      | Usuário não existe                |
+| 429    | `INVITE_RESEND_LIMIT` | Limite de reenvios por hora       |
+
+### `DELETE /api/v1/users/{id}/invite`
+
+ADMIN. Cancela o convite pendente (`invite.status` passa a `CANCELLED`). `404 INVITE_NOT_FOUND` se não há convite pendente.
+
+### `GET /api/v1/invites/{token}` (público)
+
+Valida o link e devolve `{ "name", "email" }` do convidado.
+
+| Status | Code                  | Situação                                                   |
+| ------ | --------------------- | ---------------------------------------------------------- |
+| 404    | `INVITE_INVALID`      | Token inexistente ou cancelado (mesma resposta para os dois) |
+| 410    | `INVITE_EXPIRED`      | Link expirou                                               |
+| 410    | `INVITE_ALREADY_USED` | Link já usado                                              |
+
+### `POST /api/v1/invites/{token}/accept` (público)
+
+Body `{ "password": "..." }` (mesma política da redefinição: mínimo 8 caracteres). Define a senha, marca o convite como usado, ativa o usuário e devolve o JWT (`{ "access_token", "token_type" }`). Mesmos erros do `GET`, mais `422` para senha inválida.
+
+Login de usuário `INVITED` devolve `403 INVITE_NOT_ACCEPTED`.
+
+---
+
+### Configuração de e-mail — `/api/v1/email-settings` (ADMIN)
+
+- `GET /profiles`: os dois perfis (`priority` 1 = primário, 2 = reserva). Nunca devolve a senha: só `has_secret`.
+- `PUT /profiles/{id}`: body com `provider` (`smtp` | `resend`), `host`, `port`, `security` (`starttls` | `ssl` | `none`), `username`, `secret` (vazio = mantém a atual), `from_email`, `from_name`, `reply_to`, `is_active`, `name` e `version` (a que a tela carregou). Perfil ativo só é salvo se passar no teste de conexão. Erros: `409 EMAIL_PROFILE_VERSION_CONFLICT`, `422 EMAIL_PROFILE_INCOMPLETE`, `422 EMAIL_PROFILE_TEST_FAILED`, `503 EMAIL_ENCRYPTION_NOT_CONFIGURED`.
+- `POST /profiles/{id}/test-connection`: mesmo body do `PUT` (sem `version`). Conecta, faz EHLO, TLS e login e desconecta sem enviar. Resposta `{ "ok", "steps": [{ "step": "connect" | "ehlo" | "tls" | "auth", "ok", "duration_ms", "error" }] }`.
+- `POST /profiles/{id}/test-send`: body `{ "to" }`. Envia o template `test` pelo perfil salvo (sem failover). Limite de 5 por minuto por admin. `502 EMAIL_TEST_SEND_FAILED` se o provedor recusar.
 
 ---
 

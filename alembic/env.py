@@ -11,6 +11,7 @@ from app.modules.articles.model import Article  # noqa: F401
 from app.modules.audit_logs.model import AuditLog  # noqa: F401
 from app.modules.clients.model import Client, ClientNote  # noqa: F401
 from app.modules.deadlines.model import Deadline, DeadlineAlert  # noqa: F401
+from app.modules.email_settings.model import EmailProfile  # noqa: F401
 from app.modules.documents.model import ProcessDocument  # noqa: F401
 from app.modules.external_api_logs.model import ExternalApiLog  # noqa: F401
 from app.modules.finance.model import FinancialTransaction  # noqa: F401
@@ -22,6 +23,7 @@ from app.modules.office_config.model import LandingPageTheme, OfficeConfig  # no
 from app.modules.payments.model import Payment, PaymentReminder  # noqa: F401
 from app.modules.processes.model import Process  # noqa: F401
 from app.modules.tasks.model import Task  # noqa: F401
+from app.modules.users.invite_model import UserInvite  # noqa: F401
 from app.modules.users.model import User  # noqa: F401
 from app.shared.db.base_model import Base
 

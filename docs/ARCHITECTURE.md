@@ -559,6 +559,22 @@ ele (`SMTP_HOST=mailpit`, porta 1025, sem TLS). Os e-mails aparecem em
 (testes, dev fora do docker), os e-mails ficam no `FakeEmailService`.
 `pytest -m mailpit` roda o teste de integração contra ele.
 
+### Configuração pela tela (`email_settings`)
+
+O admin cadastra o perfil primário e o reserva em "Config. e-mail"
+(`/sistema/configuracoes-email`). Perfis ativos no banco têm prioridade sobre
+o `.env`; sem nenhum ativo, vale `EMAIL_PROVIDERS`/`SMTP_*`.
+
+- A senha (ou API key do Resend) fica criptografada com `TokenCipher`
+  (`app/shared/crypto.py`, `MultiFernet`) usando `EMAIL_ENCRYPTION_KEYS`. Para
+  trocar a chave: nova na frente, `python -m scripts.rotate_email_keys`,
+  depois remova a antiga.
+- `get_email_service()` não usa mais `lru_cache`: o `EmailServiceCache` lê
+  `(id, version)` dos perfis ativos a cada chamada e remonta a cadeia só quando
+  muda. API e scheduler percebem a troca sem reiniciar.
+- Salvar um perfil ativo roda o teste de conexão antes; toda alteração gera
+  `EMAIL_SETTINGS_UPDATED` na auditoria com o diff (`"secret": "alterado"`).
+
 ### Templates
 
 Todo e-mail é um tipo registrado em `registry.py` (id, nome, assunto, contexto

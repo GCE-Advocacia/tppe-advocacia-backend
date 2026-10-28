@@ -50,7 +50,11 @@ def sender_domain(from_email: str) -> str:
 
 
 def build_mime(
-    message: EmailMessage, from_email: str, from_name: str | None = None
+    message: EmailMessage,
+    from_email: str,
+    from_name: str | None = None,
+    *,
+    default_reply_to: str | None = None,
 ) -> email.message.EmailMessage:
     mime = email.message.EmailMessage()
     mime["From"] = email.utils.formataddr((from_name or "", from_email))
@@ -58,8 +62,9 @@ def build_mime(
     if message.cc:
         mime["Cc"] = ", ".join(message.cc)
     # Bcc não entra no cabeçalho: só no envelope (EmailMessage.recipients).
-    if message.reply_to:
-        mime["Reply-To"] = message.reply_to
+    reply_to = message.reply_to or default_reply_to
+    if reply_to:
+        mime["Reply-To"] = reply_to
     mime["Subject"] = message.subject
     mime["Date"] = email.utils.formatdate(localtime=False)
 

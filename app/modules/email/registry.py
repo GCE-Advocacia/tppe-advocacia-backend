@@ -55,18 +55,6 @@ _SPECS = [
         defaults={"invited_by": None},
     ),
     TemplateSpec(
-        # Temporário: some quando o convite por link (Pessoa 2) entrar.
-        id="user_welcome",
-        name="Boas-vindas (senha temporária)",
-        description="Envia a senha temporária do novo usuário. Será substituído pelo convite.",
-        subject="Bem-vindo ao sistema",
-        sample_context={
-            "user_name": "João Lima",
-            "temp_password": "Ab3$xY9!kL2q",
-            "login_link": "https://exemplo.com/login",
-        },
-    ),
-    TemplateSpec(
         id="payment_reminder_d1",
         name="Lembrete de pagamento (véspera)",
         description="Enviado ao cliente um dia antes do vencimento.",

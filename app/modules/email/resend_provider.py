@@ -15,6 +15,7 @@ class ResendConfig:
     api_key: str
     from_email: str
     from_name: str | None = None
+    reply_to: str | None = None
     max_size_mb: int = 10
 
 
@@ -43,8 +44,9 @@ class ResendProvider:
             params["cc"] = message.cc
         if message.bcc:
             params["bcc"] = message.bcc
-        if message.reply_to:
-            params["reply_to"] = message.reply_to
+        reply_to = message.reply_to or self.config.reply_to
+        if reply_to:
+            params["reply_to"] = reply_to
         if message.headers:
             params["headers"] = dict(message.headers)
         if message.attachments:

@@ -6,7 +6,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from app.modules.appointments.model import AppointmentType
-from app.modules.google_calendar.crypto import TokenCipher
+from app.shared.crypto import TokenCipher
 from app.modules.google_calendar.fake_service import FakeGoogleCalendarClient
 from app.modules.google_calendar.service import (
     SYNC_CREATE,

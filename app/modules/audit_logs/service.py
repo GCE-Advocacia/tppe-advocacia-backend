@@ -60,6 +60,18 @@ class AuditLogService:
             target_client_name=client_name,
         )
 
+    def log_email_settings_updated(
+        self, profile_name: str, changes: dict, performed_by: User
+    ) -> None:
+        """Sem commit próprio: grava na transação de quem salvou o perfil.
+        ``changes`` já vem sem segredo (``"secret": "alterado"``)."""
+        self.repository.create(
+            action=AuditAction.EMAIL_SETTINGS_UPDATED,
+            performed_by_id=performed_by.id,
+            performed_by_name=performed_by.name,
+            details={"profile": profile_name, "changes": changes},
+        )
+
     def list_logs(
         self,
         action: AuditAction | None,
