@@ -101,14 +101,12 @@ class TestSave:
         assert list(tmp_path.iterdir()) == []
 
 
-class TestPathFor:
-    def test_returns_path_of_saved_file(self, storage, tmp_path):
+class TestRead:
+    def test_returns_content_of_saved_file(self, storage):
         stored = storage.save(make_upload_file(PDF_BYTES))
 
-        assert (
-            storage.path_for(stored.stored_name)
-            == (tmp_path / stored.stored_name).resolve()
-        )
+        assert stored.storage == "local"
+        assert storage.read(stored.stored_name) == PDF_BYTES
 
     @pytest.mark.parametrize(
         "name",
@@ -116,11 +114,11 @@ class TestPathFor:
     )
     def test_rejects_invalid_names(self, storage, name):
         with pytest.raises(ProcessDocumentNotFoundError):
-            storage.path_for(name)
+            storage.read(name)
 
     def test_rejects_missing_file(self, storage):
         with pytest.raises(ProcessDocumentNotFoundError):
-            storage.path_for("00000000-0000-0000-0000-000000000000.pdf")
+            storage.read("00000000-0000-0000-0000-000000000000.pdf")
 
 
 class TestDelete:

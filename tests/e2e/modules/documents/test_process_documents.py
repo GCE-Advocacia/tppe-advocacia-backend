@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.main import app
 from app.modules.clients.model import Client
 from app.modules.clients.repository import ClientRepository
-from app.modules.documents.deps import get_document_storage
+from app.modules.documents.deps import get_document_storages
 from app.modules.documents.model import ProcessDocument
 from app.modules.documents.storage import LocalDocumentStorage
 from app.modules.processes.model import Process
@@ -30,9 +30,9 @@ def storage(tmp_path):
     local = LocalDocumentStorage(
         base_dir=tmp_path, max_size_mb=1, allowed_mime_types=ALLOWED
     )
-    app.dependency_overrides[get_document_storage] = lambda: local
+    app.dependency_overrides[get_document_storages] = lambda: {"local": local}
     yield local
-    app.dependency_overrides.pop(get_document_storage, None)
+    app.dependency_overrides.pop(get_document_storages, None)
 
 
 @pytest.fixture
@@ -232,7 +232,7 @@ class TestDownload:
         assert response.headers["content-type"] == "application/pdf"
         assert (
             response.headers["content-disposition"]
-            == 'attachment; filename="peticao.pdf"'
+            == "attachment; filename*=UTF-8''peticao.pdf"
         )
 
     def test_encodes_non_ascii_name(self, client, user_headers, process_fixture):
