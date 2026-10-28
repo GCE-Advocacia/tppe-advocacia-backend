@@ -8,9 +8,9 @@ import pytest
 from fastapi import UploadFile
 from PIL import Image, ImageCms, PngImagePlugin
 
-from app.config.settings import get_settings
 from app.modules.media.logo import MAX_LOGO_SIZE_MB, normalize_favicon, normalize_logo
 from app.modules.media.storage.logo import LogoStorage
+from app.modules.media.storage.object_storage import LocalObjectStorage
 from app.modules.office_config.model import OfficeConfig
 from app.modules.office_config.service import OfficeConfigService
 from app.shared.exceptions import (
@@ -18,7 +18,6 @@ from app.shared.exceptions import (
     InvalidLogoImageError,
     InvalidMimeTypeError,
     LogoDimensionsTooLargeError,
-    MediaNotFoundError,
 )
 
 
@@ -33,10 +32,17 @@ def upload(content=None):
     return UploadFile(filename="logo.png", file=BytesIO(content or encoded()))
 
 
+BASE_URL = "https://bucket.test/uploads"
+
+
 @pytest.fixture
-def storage(monkeypatch, tmp_path):
-    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
-    return LogoStorage()
+def logo_dir(tmp_path):
+    return tmp_path / "logos"
+
+
+@pytest.fixture
+def storage(tmp_path):
+    return LogoStorage(LocalObjectStorage(tmp_path, BASE_URL))
 
 
 class TestLogoProcessing:
@@ -166,87 +172,82 @@ class TestLogoProcessing:
 
 
 class TestLogoStorage:
-    def test_roundtrip_and_safe_deletion(self, storage):
-        filename = storage.save(encoded())
-        path = storage.get_file_path(filename)
-        assert path.parent.name == "logos"
+    def test_roundtrip_and_safe_deletion(self, storage, logo_dir):
+        key = storage.save(encoded())
+        assert key.startswith("logos/")
+        path = storage.storage.path_for(key)
+        assert path.parent == logo_dir.resolve()
         assert path.read_bytes() == encoded()
-        storage.delete_url(storage.url(filename, "http://api/"), "http://api/")
+        storage.delete_url(storage.url(key))
         assert not path.exists()
 
     def test_does_not_delete_general_media_or_foreign_urls(self, storage, tmp_path):
-        filename = storage.save(encoded())
+        key = storage.save(encoded())
+        filename = key.removeprefix("logos/")
         general_media = tmp_path / filename
         general_media.write_bytes(b"unrelated")
         for url in (
-            f"http://api/api/v1/media/{filename}",
-            f"http://other/api/v1/media/logos/{filename}",
-            f"http://api/api/v1/media/logos/../{filename}",
+            f"{BASE_URL}/{filename}",
+            f"https://other.test/uploads/{key}",
+            f"{BASE_URL}/logos/../{filename}",
         ):
-            storage.delete_url(url, "http://api/")
+            storage.delete_url(url)
         assert general_media.read_bytes() == b"unrelated"
-        assert storage.get_file_path(filename).is_file()
+        assert storage.storage.path_for(key).is_file()
 
-    def test_rejects_paths_and_symlinks_outside_logo_directory(self, storage, tmp_path):
-        storage.directory.mkdir()
-        outside = tmp_path / "outside.png"
-        outside.write_bytes(b"unrelated")
+    def test_only_deletes_logo_keys(self, storage, tmp_path):
         filename = f"{uuid4()}.png"
-        (storage.directory / filename).symlink_to(outside)
-        for name in (filename, "../outside.png", "arbitrary.png"):
-            with pytest.raises(MediaNotFoundError):
-                storage.get_file_path(name)
-            storage.delete(name)
-        assert outside.read_bytes() == b"unrelated"
+        storage.storage.put(filename, b"general", "image/png")
+        for key in (filename, "logos/../outside.png", "arbitrary.png"):
+            storage.delete(key)
+        assert (tmp_path / filename).read_bytes() == b"general"
 
     def test_cleanup_error_is_logged_without_masking_commit_result(
         self, storage, monkeypatch, caplog
     ):
-        filename = storage.save(encoded())
-
-        def deny(*args, **kwargs):
-            raise PermissionError("Cannot unlink")
-
-        monkeypatch.setattr(type(storage.directory), "unlink", deny)
-        storage.delete(filename)
+        key = storage.save(encoded())
+        monkeypatch.setattr(
+            storage.storage, "delete", MagicMock(side_effect=OSError("denied"))
+        )
+        storage.delete(key)
         assert "Could not remove obsolete logo" in caplog.text
 
 
 class TestLogoReplacement:
     @pytest.fixture
     def replacement(self, storage):
-        filename = storage.save(encoded())
-        old_url = storage.url(filename, "http://api/")
+        key = storage.save(encoded())
+        old_url = storage.url(key)
         repo = MagicMock()
         repo.get_config_for_update.return_value = OfficeConfig(id=1, logo_url=old_url)
-        return OfficeConfigService(repo, storage), repo, filename, old_url
+        return OfficeConfigService(repo, storage), repo, key, old_url
 
     @pytest.mark.parametrize("failure_point", ["flush", "commit"])
     def test_db_failure_preserves_old_file_and_cleans_new_one(
-        self, replacement, storage, failure_point
+        self, replacement, logo_dir, failure_point
     ):
-        service, repo, old_filename, old_url = replacement
+        service, repo, old_key, old_url = replacement
         if failure_point == "flush":
             repo.update_config.side_effect = RuntimeError("DB failed")
         else:
             repo.db.commit.side_effect = RuntimeError("DB failed")
 
         with pytest.raises(RuntimeError, match="DB failed"):
-            service.update_logo(upload(), "http://api/")
+            service.update_logo(upload())
 
         repo.db.rollback.assert_called_once()
-        assert [p.name for p in storage.directory.iterdir()] == [old_filename]
+        assert [f"logos/{p.name}" for p in logo_dir.iterdir()] == [old_key]
         assert repo.get_config_for_update.return_value.logo_url == old_url
 
     def test_invalid_replacement_does_not_touch_database_or_storage(
-        self, replacement, storage
+        self, replacement, logo_dir
     ):
-        service, repo, old_filename, _ = replacement
+        service, repo, old_key, _ = replacement
         with pytest.raises(InvalidMimeTypeError):
-            service.update_logo(upload(b"broken"), "http://api/")
+            service.update_logo(upload(b"broken"))
         repo.get_config_for_update.assert_not_called()
         repo.update_config.assert_not_called()
-        assert [p.name for p in storage.directory.iterdir()] == [old_filename]
+        assert [f"logos/{p.name}" for p in logo_dir.iterdir()] == [old_key]
 
     def test_storage_failure_does_not_touch_database(self, replacement, monkeypatch):
         service, repo, _, _ = replacement
@@ -254,21 +255,23 @@ class TestLogoReplacement:
             service.logo_storage, "save", MagicMock(side_effect=OSError("disk full"))
         )
         with pytest.raises(OSError, match="disk full"):
-            service.update_logo(upload(), "http://api/")
+            service.update_logo(upload())
         repo.update_config.assert_not_called()
         repo.db.commit.assert_not_called()
 
-    def test_old_file_is_kept_until_commit_then_removed(self, replacement, storage):
-        service, repo, old_filename, _ = replacement
+    def test_old_file_is_kept_until_commit_then_removed(
+        self, replacement, storage, logo_dir
+    ):
+        service, repo, old_key, _ = replacement
 
         def commit():
-            assert storage.get_file_path(old_filename).is_file()
-            assert len(list(storage.directory.iterdir())) == 2
+            assert storage.storage.path_for(old_key).is_file()
+            assert len(list(logo_dir.iterdir())) == 2
 
         repo.db.commit.side_effect = commit
-        service.update_logo(upload(), "http://api/")
-        assert len(list(storage.directory.iterdir())) == 1
-        assert not (storage.directory / old_filename).exists()
+        service.update_logo(upload())
+        assert len(list(logo_dir.iterdir())) == 1
+        assert not (logo_dir / old_key.removeprefix("logos/")).exists()
         assert repo.update_config.call_args.args[0]["logo_url"].startswith(
-            "http://api/api/v1/media/logos/"
+            f"{BASE_URL}/logos/"
         )

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 
 from app.modules.office_config.deps import (
     get_office_config_service,
@@ -142,7 +142,6 @@ def apply_theme(
     summary="Substitui e salva a logo do escritório (admin only)",
 )
 def update_office_logo(
-    request: Request,
     file: UploadFile = File(...),
     slot: LogoSlot = "landing-light",
     make_default: bool = Form(False),
@@ -150,9 +149,7 @@ def update_office_logo(
     _: User = Depends(require_admin),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(
-        OfficeConfigRead.model_validate(
-            service.update_logo(file, str(request.base_url), slot, make_default)
-        )
+        OfficeConfigRead.model_validate(service.update_logo(file, slot, make_default))
     )
 
 
@@ -181,17 +178,12 @@ def preview_office_logo(
     summary="Restaura a logo padrão (admin only)",
 )
 def reset_office_logo(
-    request: Request,
     slot: LogoSlot = "landing-light",
     factory: bool = False,
     service: OfficeConfigService = Depends(get_office_config_service),
     _: User = Depends(require_admin),
 ) -> SuccessResponse[OfficeConfigRead]:
-    return ok(
-        OfficeConfigRead.model_validate(
-            service.reset_logo(str(request.base_url), slot, factory)
-        )
-    )
+    return ok(OfficeConfigRead.model_validate(service.reset_logo(slot, factory)))
 
 
 @router.patch(
@@ -215,13 +207,8 @@ def update_logo_settings(
     summary="Define a logo atual como padrão (admin only)",
 )
 def set_office_logo_default(
-    request: Request,
     slot: LogoSlot = "landing-light",
     service: OfficeConfigService = Depends(get_office_config_service),
     _: User = Depends(require_admin),
 ) -> SuccessResponse[OfficeConfigRead]:
-    return ok(
-        OfficeConfigRead.model_validate(
-            service.set_logo_default(str(request.base_url), slot)
-        )
-    )
+    return ok(OfficeConfigRead.model_validate(service.set_logo_default(slot)))

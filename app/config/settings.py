@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     lead_dedup_window_hours: int = Field(1, validation_alias="LEAD_DEDUP_WINDOW_HOURS")
 
     upload_dir: str = Field("uploads/media", validation_alias="UPLOAD_DIR")
+    media_public_base_url: str = Field(
+        "http://localhost:8000/api/v1/media", validation_alias="MEDIA_PUBLIC_BASE_URL"
+    )
+    media_bucket: str = Field(
+        "", validation_alias="MEDIA_BUCKET", validate_default=True
+    )
+    s3_endpoint_url: str = Field("", validation_alias="AWS_ENDPOINT_URL_S3")
+    s3_region: str = Field("us-east-2", validation_alias="AWS_REGION")
+    s3_access_key_id: str = Field("", validation_alias="AWS_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field("", validation_alias="AWS_SECRET_ACCESS_KEY")
     max_file_size_mb: int = Field(5, validation_alias="MAX_FILE_SIZE_MB")
     allowed_mime_types: list[str] = Field(
         default=["image/jpeg", "image/png"],
@@ -149,6 +159,17 @@ class Settings(BaseSettings):
                 f"{_MIN_JWT_SECRET_LENGTH} chars and not a known default in production"
             )
         return jwt_secret_key
+
+    @field_validator("media_bucket")
+    @classmethod
+    def object_storage_in_production(
+        cls, media_bucket: str, info: ValidationInfo
+    ) -> str:
+        # Em produção o disco do servidor é temporário: imagens só podem ir
+        # para o object storage.
+        if info.data.get("app_env") == "production" and not media_bucket:
+            raise ValueError("MEDIA_BUCKET must be set in production")
+        return media_bucket
 
     @field_validator("datajud_sync_user_id", mode="before")
     @classmethod
