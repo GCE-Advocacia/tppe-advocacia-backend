@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -227,6 +229,17 @@ class GoogleDriveService:
         return int(data["sub"])
 
 
+def oauth_state_secret(jwt_secret_key: str) -> str:
+    """Chave própria para o `state`, derivada da chave dos tokens de login.
+
+    Com a mesma chave, o `state` (que aparece na URL e nos logs) seria aceito
+    como token de acesso do administrador até expirar.
+    """
+    return hmac.new(
+        jwt_secret_key.encode(), b"google_drive_oauth_state", hashlib.sha256
+    ).hexdigest()
+
+
 def build_google_drive_service(
     db: Session,
     client_factory: Callable[[str], DriveClient] | None = None,
@@ -259,7 +272,7 @@ def build_google_drive_service(
         cipher=(
             TokenCipher(settings.google_token_encryption_key) if configured else None
         ),
-        state_secret=settings.jwt_secret_key,
+        state_secret=oauth_state_secret(settings.jwt_secret_key),
         client_factory=client_factory
         or (lambda refresh_token: GoogleDriveApiClient(refresh_token, settings)),
     )

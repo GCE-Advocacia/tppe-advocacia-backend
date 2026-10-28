@@ -71,6 +71,10 @@ class DriveDocumentStorage:
         except _DRIVE_ERRORS as exc:
             self.drive.fail(ExternalApiOperation.DOCUMENT_DOWNLOAD, exc, None)
 
+    def ensure_available(self) -> None:
+        # Levanta GoogleDriveNotConnectedError antes de qualquer mudança no banco.
+        self.drive.client()
+
     def delete(self, stored_name: str, user_id: int | None = None) -> None:
         client = self.drive.client()
         try:

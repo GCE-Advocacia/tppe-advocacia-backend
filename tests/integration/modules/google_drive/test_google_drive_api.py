@@ -97,3 +97,16 @@ def test_disconnect_then_status_disconnected(drive_api, exchange, monkeypatch):
     assert response.status_code == 204
     status = drive_api.client.get(f"{BASE}/status", headers=drive_api.headers(1))
     assert status.json()["data"]["connected"] is False
+
+
+def test_oauth_state_is_not_accepted_as_login_token(drive_api):
+    auth_url = drive_api.client.get(
+        f"{BASE}/auth-url", headers=drive_api.headers(1)
+    ).json()["data"]["auth_url"]
+    state = parse_qs(urlparse(auth_url).query)["state"][0]
+
+    response = drive_api.client.get(
+        f"{BASE}/status", headers={"Authorization": f"Bearer {state}"}
+    )
+
+    assert response.status_code == 401

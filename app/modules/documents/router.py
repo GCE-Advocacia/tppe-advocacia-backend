@@ -84,7 +84,7 @@ def download_process_document(
 @router.delete(
     "/processes/{process_id}/documents/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=error_responses(401, 403, 404),
+    responses=error_responses(401, 403, 404, 409, 503),
     summary="Exclui um documento (apenas administrador ou quem enviou)",
 )
 def delete_process_document(

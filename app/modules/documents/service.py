@@ -97,6 +97,9 @@ class ProcessDocumentService:
         assert_author_or_admin(current_user, document.uploaded_by)
 
         storage = self._storage_of(document)
+        # Drive desconectado: recusa a exclusão em vez de deixar o arquivo
+        # esquecido no Drive.
+        storage.ensure_available()
         stored_name = document.stored_name
         with unit_of_work(self.repository.db):
             self.repository.delete(document)

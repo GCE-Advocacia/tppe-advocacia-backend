@@ -42,6 +42,8 @@ class DocumentStorage(Protocol):
 
     def read(self, stored_name: str) -> bytes: ...
 
+    def ensure_available(self) -> None: ...
+
     def delete(self, stored_name: str, user_id: int | None = None) -> None: ...
 
 
@@ -118,6 +120,9 @@ class LocalDocumentStorage:
         if not candidate.is_relative_to(base) or not candidate.is_file():
             raise ProcessDocumentNotFoundError()
         return candidate.read_bytes()
+
+    def ensure_available(self) -> None:
+        return None
 
     def delete(self, stored_name: str, user_id: int | None = None) -> None:
         if not _STORED_NAME_PATTERN.match(stored_name):

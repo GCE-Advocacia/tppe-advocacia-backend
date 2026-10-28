@@ -228,3 +228,40 @@ def test_non_author_non_admin_cannot_delete(drive_api, process_id, connected):
     )
     assert response.status_code == 403
     assert drive_api.fake.trashed == set()
+
+
+def test_delete_while_disconnected_returns_409_and_keeps_document(
+    drive_api, process_id, connected, monkeypatch
+):
+    from app.modules.google_drive import service
+
+    monkeypatch.setattr(service, "revoke_refresh_token", lambda token: None)
+    document_id = upload(drive_api, process_id).json()["data"]["id"]
+    drive_api.client.delete(DRIVE, headers=drive_api.headers(1))
+
+    response = drive_api.client.delete(
+        f"{docs_url(process_id)}/{document_id}", headers=drive_api.headers(1)
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "GOOGLE_DRIVE_NOT_CONNECTED"
+    with drive_api.session() as session:
+        assert session.get(ProcessDocument, document_id) is not None
+    assert drive_api.fake.trashed == set()
+
+
+def test_download_while_disconnected_returns_409(
+    drive_api, process_id, connected, monkeypatch
+):
+    from app.modules.google_drive import service
+
+    monkeypatch.setattr(service, "revoke_refresh_token", lambda token: None)
+    document_id = upload(drive_api, process_id).json()["data"]["id"]
+    drive_api.client.delete(DRIVE, headers=drive_api.headers(1))
+
+    response = drive_api.client.get(
+        f"{docs_url(process_id)}/{document_id}/download", headers=drive_api.headers(1)
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "GOOGLE_DRIVE_NOT_CONNECTED"
