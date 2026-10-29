@@ -1,7 +1,7 @@
 import bcrypt
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, text
+from sqlalchemy import String, cast, create_engine, delete, select, text
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
@@ -65,6 +65,14 @@ def _hash(password: str) -> str:
 
 def _teardown_user(db_session: Session, user_id: int) -> None:
     db_session.rollback()
+    email = db_session.scalar(select(User.email).where(User.id == user_id))
+    if email:
+        # E-mails que o teste deixou na fila para este usuário.
+        db_session.execute(
+            delete(EmailOutboxItem).where(
+                cast(EmailOutboxItem.to, String).ilike(f"%{email}%")
+            )
+        )
     db_session.execute(
         delete(Task).where(
             (Task.created_by == user_id)
@@ -180,6 +188,31 @@ def _run_outbox(provider) -> int:
 @pytest.fixture
 def run_outbox():
     return _run_outbox
+
+
+class QueuedFake:
+    """Os envios agora passam pela fila: ler ``sent`` ou ``messages``
+    processa a fila antes, como o scheduler faria."""
+
+    def __init__(self, inner: FakeEmailService) -> None:
+        self.inner = inner
+
+    @property
+    def sent(self) -> list[dict]:
+        _run_outbox(self.inner)
+        return self.inner.sent
+
+    @property
+    def messages(self) -> list:
+        _run_outbox(self.inner)
+        return self.inner.messages
+
+
+@pytest.fixture
+def queued_email(fake_email):
+    # O que outros testes deixaram na fila sai antes, num fake descartado.
+    _run_outbox(FakeEmailService())
+    return QueuedFake(fake_email)
 
 
 @pytest.fixture

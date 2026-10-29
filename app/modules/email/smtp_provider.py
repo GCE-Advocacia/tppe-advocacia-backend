@@ -45,8 +45,10 @@ class SmtpProvider:
 
     name = "smtp"
 
-    def __init__(self, config: SmtpConfig) -> None:
+    def __init__(self, config: SmtpConfig, name: str = "smtp") -> None:
         self.config = config
+        # Nome no histórico e no circuit breaker (ex.: "own" e "system").
+        self.name = name
         self._conn: smtplib.SMTP | None = None
 
     # ---- conexão --------------------------------------------------------

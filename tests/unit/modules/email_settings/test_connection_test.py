@@ -81,8 +81,10 @@ def test_refused_port_stops_at_connect():
     assert not report.ok
     assert len(report.steps) == 1
     assert report.steps[0].step == "connect"
-    assert "Conexão recusada" in report.steps[0].error
-    assert "smtp.gmail.com:2626" in report.steps[0].error
+    assert "recusou a conexão" in report.steps[0].error
+    assert "porta" in report.steps[0].hint
+    # A mensagem técnica continua guardada para quem precisar investigar.
+    assert "smtp.gmail.com:2626" in report.steps[0].detail
 
 
 def test_unknown_host_message():
@@ -90,7 +92,7 @@ def test_unknown_host_message():
 
     report = tester.test(_config(host="naoexiste.invalid"))
 
-    assert "não encontrado" in report.steps[0].error
+    assert "não foi encontrado" in report.steps[0].error
 
 
 def test_bad_credentials_fail_at_auth_and_quit():
@@ -102,8 +104,21 @@ def test_bad_credentials_fail_at_auth_and_quit():
 
     assert not report.ok
     assert report.first_error.step == "auth"
-    assert report.first_error.error.startswith("535 credenciais inválidas")
+    assert report.first_error.error == "O e-mail ou a senha não foram aceitos."
+    assert report.first_error.detail.startswith("535 credenciais inválidas")
     conn.quit.assert_called_once()
+
+
+def test_gmail_bad_password_suggests_app_password():
+    from app.modules.email_settings.presets import PRESETS
+
+    conn = _conn()
+    conn.login.side_effect = smtplib.SMTPAuthenticationError(535, b"5.7.8 bad")
+    tester, _, _ = _tester(conn)
+
+    report = tester.test(_config(), PRESETS["gmail"])
+
+    assert "senha de app, não a senha normal" in report.first_error.hint
 
 
 def _resend(status: int, body: dict) -> ConnectionTester:

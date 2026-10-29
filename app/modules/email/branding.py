@@ -9,6 +9,7 @@ from contextlib import AbstractContextManager
 
 from sqlalchemy.orm import Session
 
+from app.modules.email_settings.model import EmailIdentity
 from app.modules.office_config.model import OfficeConfig
 from app.modules.office_config.repository import OfficeConfigRepository
 
@@ -99,7 +100,10 @@ class OfficeBrandingProvider:
         try:
             with self._session_factory() as db:
                 config = OfficeConfigRepository(db).get_config()
-                return build_branding(config, self._fallback_name)
+                # Sem nome no office_config, vale o nome do remetente da tela.
+                identity = db.get(EmailIdentity, 1)
+                fallback = (identity.from_name if identity else None) or self._fallback_name
+                return build_branding(config, fallback)
         except Exception:
             # Sem office_config (ou banco fora): e-mail sai com a marca padrão.
             logger.warning("Could not load office_config for email branding", exc_info=True)

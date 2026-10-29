@@ -17,7 +17,7 @@ from app.modules.email_outbox.model import (  # noqa: F401
     EmailOutboxItem,
     EmailProviderHealth,
 )
-from app.modules.email_settings.model import EmailProfile  # noqa: F401
+from app.modules.email_settings.model import EmailIdentity, EmailProfile  # noqa: F401
 from app.modules.documents.model import ProcessDocument  # noqa: F401
 from app.modules.external_api_logs.model import ExternalApiLog  # noqa: F401
 from app.modules.finance.model import FinancialTransaction  # noqa: F401

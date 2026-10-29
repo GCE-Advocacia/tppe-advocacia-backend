@@ -3,8 +3,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-Provider = Literal["smtp", "resend"]
+from app.modules.email_settings.presets import PresetId
+
+# O Resend continua possível na conta do sistema (.env), mas não aparece
+# para o escritório.
+Provider = Literal["smtp"]
 Security = Literal["starttls", "ssl", "none"]
+Account = Literal["own", "system"]
 
 
 class EmailProfileRead(BaseModel):
@@ -13,7 +18,8 @@ class EmailProfileRead(BaseModel):
     id: int
     name: str
     priority: int
-    provider: Provider
+    provider: str
+    preset: str | None
     host: str | None
     port: int | None
     security: Security
@@ -28,6 +34,8 @@ class EmailProfileRead(BaseModel):
     version: int
     updated_by: int | None
     updated_at: datetime
+    # Avisos que não impedem salvar (ex.: remetente de outra conta).
+    warnings: list[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +49,8 @@ class EmailProfileForm(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: Provider = "smtp"
+    # Provedor da lista: preenche host, porta e segurança. "other" = campos livres.
+    preset: PresetId = "other"
     host: str | None = Field(None, max_length=255)
     port: int | None = Field(None, ge=1, le=65535)
     security: Security = "starttls"
@@ -72,6 +82,7 @@ class ConnectionStepRead(BaseModel):
     ok: bool
     duration_ms: int
     error: str | None = None
+    hint: str | None = None
 
 
 class ConnectionTestRead(BaseModel):
@@ -86,4 +97,66 @@ class TestSendRequest(BaseModel):
 class TestSendRead(BaseModel):
     provider: str
     message_id: str
+    duration_ms: int
+
+
+class EmailIdentityRead(BaseModel):
+    from_name: str | None
+    reply_to: str | None
+    version: int
+    updated_at: datetime | None
+
+
+class EmailIdentityUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    from_name: str | None = Field(None, max_length=255)
+    reply_to: EmailStr | None = None
+    version: int = Field(..., ge=1)
+
+    @field_validator("from_name", "reply_to", mode="before")
+    @classmethod
+    def blank_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
+
+
+class ProviderPresetRead(BaseModel):
+    id: str
+    name: str
+    host: str | None
+    port: int | None
+    security: Security
+    password_help: str
+    help_url: str | None
+    sender_must_match: bool
+
+
+class EmailStatusRead(BaseModel):
+    """Bloco "Status" da tela: tudo em linguagem simples."""
+
+    state: Literal["ok", "degraded", "down"]
+    message: str
+    account: Account
+    account_email: str | None
+    own_account_configured: bool
+    own_account_error: str | None
+    last_sent_at: datetime | None
+    last_test_at: datetime | None
+    last_test_ok: bool | None
+    last_test_error: str | None
+
+
+class EmailOverviewRead(BaseModel):
+    identity: EmailIdentityRead
+    own_account: EmailProfileRead | None
+    system_account_email: str | None
+    system_account_configured: bool
+
+
+class TestSendMeRead(BaseModel):
+    to: str
+    account: Account
+    fallback_used: bool
     duration_ms: int

@@ -5,11 +5,12 @@ from app.config.settings import get_settings
 from app.db.database import get_db
 from app.modules.audit_logs.repository import AuditLogRepository
 from app.modules.audit_logs.service import AuditLogService
+from app.modules.email.protocol import EmailProvider
 from app.modules.email.renderer import EmailRenderer
 from app.modules.email_settings.connection_test import ConnectionTester
 from app.modules.email_settings.repository import EmailProfileRepository
 from app.modules.email_settings.service import EmailSettingsService
-from app.shared.deps.email import get_email_renderer
+from app.shared.deps.email import get_email_renderer, get_email_service
 
 
 def get_connection_tester() -> ConnectionTester:
@@ -20,6 +21,7 @@ def get_email_settings_service(
     db: Session = Depends(get_db),
     tester: ConnectionTester = Depends(get_connection_tester),
     renderer: EmailRenderer = Depends(get_email_renderer),
+    email: EmailProvider = Depends(get_email_service),
 ) -> EmailSettingsService:
     return EmailSettingsService(
         repository=EmailProfileRepository(db),
@@ -27,4 +29,5 @@ def get_email_settings_service(
         audit=AuditLogService(AuditLogRepository(db)),
         renderer=renderer,
         settings=get_settings(),
+        email_service=lambda: email,
     )

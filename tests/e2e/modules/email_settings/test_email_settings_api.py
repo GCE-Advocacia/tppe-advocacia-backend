@@ -19,7 +19,7 @@ class FakeTester:
         self.ok = True
         self.configs: list = []
 
-    def test(self, config) -> ConnectionTestReport:
+    def test(self, config, preset=None) -> ConnectionTestReport:
         self.configs.append(config)
         if self.ok:
             return ConnectionTestReport([StepResult("connect", True, 1)])
@@ -54,6 +54,7 @@ def reset_profiles(db_session):
             from_email=None,
             from_name=None,
             reply_to=None,
+            preset=None,
             is_active=False,
             last_tested_at=None,
             last_test_ok=None,
@@ -109,11 +110,23 @@ class TestPermissions:
 
 
 class TestListAndSave:
-    def test_lists_primary_and_fallback(self, client, admin_headers):
+    def test_lists_only_own_account(self, client, admin_headers):
         response = client.get(BASE, headers=admin_headers)
 
         assert response.status_code == 200
-        assert [p["priority"] for p in response.json()["data"]] == [1, 2]
+        # O antigo reserva não aparece mais: a reserva é a conta do sistema.
+        assert [p["priority"] for p in response.json()["data"]] == [1]
+
+    def test_old_fallback_is_not_editable(self, client, admin_headers, db_session):
+        fallback_id = db_session.scalar(
+            select(EmailProfile.id).where(EmailProfile.priority == 2)
+        )
+
+        response = client.put(
+            f"{BASE}/{fallback_id}", json=_form(1), headers=admin_headers
+        )
+
+        assert response.status_code == 404
 
     def test_response_never_contains_secret(
         self, client, admin_headers, tester, db_session
@@ -240,4 +253,5 @@ class TestConnection:
             "ok": False,
             "duration_ms": 2,
             "error": "535 credenciais inválidas",
+            "hint": None,
         }

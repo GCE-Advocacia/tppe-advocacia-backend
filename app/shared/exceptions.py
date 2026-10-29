@@ -471,12 +471,12 @@ class EmailProfileIncompleteError(AppException):
 
 
 class EmailProfileTestFailedError(AppException):
-    def __init__(self, step: str, error: str | None) -> None:
+    def __init__(self, step: str, error: str | None, hint: str | None = None) -> None:
+        detail = " ".join(part for part in (error, hint) if part)
         super().__init__(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "EMAIL_PROFILE_TEST_FAILED",
-            f"O teste de conexão falhou na etapa '{step}': {error}. "
-            "A configuração não foi salva.",
+            f"{detail} A configuração não foi salva.".strip(),
         )
 
 
@@ -485,16 +485,19 @@ class EmailEncryptionNotConfiguredError(AppException):
         super().__init__(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "EMAIL_ENCRYPTION_NOT_CONFIGURED",
-            "EMAIL_ENCRYPTION_KEYS não está configurada no servidor.",
+            "O servidor ainda não está pronto para guardar a senha do e-mail. "
+            "Peça ao suporte para configurar a chave de criptografia "
+            "(EMAIL_ENCRYPTION_KEYS). Enquanto isso, os e-mails seguem pela "
+            "conta do sistema.",
         )
 
 
 class EmailTestSendFailedError(AppException):
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, hint: str | None = None) -> None:
         super().__init__(
             status.HTTP_502_BAD_GATEWAY,
             "EMAIL_TEST_SEND_FAILED",
-            f"O e-mail de teste não foi enviado: {reason}",
+            " ".join(part for part in (f"O e-mail de teste não foi enviado. {reason}", hint) if part),
         )
 
 

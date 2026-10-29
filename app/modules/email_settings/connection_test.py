@@ -19,6 +19,8 @@ import httpx
 
 from app.modules.email.resend_provider import ResendConfig
 from app.modules.email.smtp_provider import SmtpConfig
+from app.modules.email_settings.messages import explain_exception
+from app.modules.email_settings.presets import ProviderPreset
 
 Step = Literal["connect", "ehlo", "tls", "auth"]
 
@@ -30,7 +32,10 @@ class StepResult:
     step: Step
     ok: bool
     duration_ms: int
+    # ``error`` e ``hint`` em linguagem simples; ``detail`` é a mensagem técnica.
     error: str | None = None
+    hint: str | None = None
+    detail: str | None = None
 
 
 @dataclass
@@ -98,14 +103,18 @@ class ConnectionTester:
         self._smtp_ssl = smtp_ssl_factory
         self._http = http
 
-    def test(self, config: SmtpConfig | ResendConfig) -> ConnectionTestReport:
+    def test(
+        self, config: SmtpConfig | ResendConfig, preset: ProviderPreset | None = None
+    ) -> ConnectionTestReport:
         if isinstance(config, SmtpConfig):
-            return self.test_smtp(config)
+            return self.test_smtp(config, preset)
         return self.test_resend(config)
 
     # ---- SMTP -----------------------------------------------------------
 
-    def test_smtp(self, cfg: SmtpConfig) -> ConnectionTestReport:
+    def test_smtp(
+        self, cfg: SmtpConfig, preset: ProviderPreset | None = None
+    ) -> ConnectionTestReport:
         report = ConnectionTestReport()
         context = ssl.create_default_context()
         conn: smtplib.SMTP | None = None
@@ -115,8 +124,17 @@ class ConnectionTester:
             try:
                 action()
             except Exception as exc:  # noqa: BLE001 - vira mensagem para o admin
-                error = friendly_error(exc, cfg.host, cfg.port)
-                report.steps.append(StepResult(step, False, _elapsed(started), error))
+                explained = explain_exception(exc, preset, cfg.port)
+                report.steps.append(
+                    StepResult(
+                        step,
+                        False,
+                        _elapsed(started),
+                        error=explained.message,
+                        hint=explained.hint,
+                        detail=friendly_error(exc, cfg.host, cfg.port),
+                    )
+                )
                 return False
             report.steps.append(StepResult(step, True, _elapsed(started)))
             return True

@@ -24,8 +24,9 @@ class ResendProvider:
 
     name = "resend"
 
-    def __init__(self, config: ResendConfig) -> None:
+    def __init__(self, config: ResendConfig, name: str = "resend") -> None:
         self.config = config
+        self.name = name
 
     def _from(self) -> str:
         if self.config.from_name:

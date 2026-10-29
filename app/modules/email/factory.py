@@ -1,6 +1,7 @@
 """Monta a cadeia de provedores de e-mail a partir da configuração."""
 
 import logging
+from dataclasses import dataclass, replace
 
 from app.config.settings import Settings
 from app.modules.email.failover import FailoverEmailService
@@ -14,10 +15,46 @@ logger = logging.getLogger(__name__)
 ProviderConfig = SmtpConfig | ResendConfig
 
 
-def build_provider(config: ProviderConfig) -> EmailProvider:
+# Nomes no histórico e no circuit breaker.
+OWN_ACCOUNT = "own"
+SYSTEM_ACCOUNT = "system"
+
+
+@dataclass(frozen=True)
+class SenderIdentity:
+    """Nome do remetente e responder para do escritório (vale para as duas contas)."""
+
+    from_name: str | None = None
+    reply_to: str | None = None
+
+
+def build_provider(config: ProviderConfig, name: str | None = None) -> EmailProvider:
     if isinstance(config, SmtpConfig):
-        return SmtpProvider(config)
-    return ResendProvider(config)
+        return SmtpProvider(config, name or "smtp")
+    return ResendProvider(config, name or "resend")
+
+
+def with_identity(
+    config: ProviderConfig, identity: SenderIdentity | None
+) -> ProviderConfig:
+    if identity is None:
+        return config
+    return replace(
+        config,
+        from_name=identity.from_name or config.from_name,
+        reply_to=identity.reply_to or config.reply_to,
+    )
+
+
+def system_providers(
+    settings: Settings, identity: SenderIdentity | None = None
+) -> list[EmailProvider]:
+    """Conta do sistema (SMTP do ``.env``), com a identidade do escritório."""
+    providers: list[EmailProvider] = []
+    for index, config in enumerate(configs_from_settings(settings)):
+        name = SYSTEM_ACCOUNT if index == 0 else f"{SYSTEM_ACCOUNT}-{index + 1}"
+        providers.append(build_provider(with_identity(config, identity), name))
+    return providers
 
 
 def build_from_configs(configs: list[ProviderConfig]) -> FailoverEmailService:
