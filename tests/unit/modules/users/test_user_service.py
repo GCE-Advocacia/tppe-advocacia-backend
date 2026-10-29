@@ -26,6 +26,7 @@ def make_user(**kwargs) -> User:
         "hashed_password": "hashed",
         "role": Role.USER,
         "is_active": True,
+        "can_view_payments": False,
         "created_by": None,
         "updated_by": None,
         "created_at": now,
@@ -388,6 +389,33 @@ class TestUpdateUser:
         service.update_user(1, UserUpdate(is_active=True), updated_by=admin)
 
         audit.log_user_updated.assert_called_once_with(updated, admin)
+
+    def test_passes_can_view_payments_to_repo(self, service, repo):
+        existing = make_user(can_view_payments=False)
+        repo.get_by_id.return_value = existing
+        repo.update.return_value = make_user(can_view_payments=True)
+
+        result = service.update_user(
+            1, UserUpdate(can_view_payments=True), updated_by=make_user(id=5)
+        )
+
+        updates = repo.update.call_args[0][1]
+        assert updates["can_view_payments"] is True
+        assert result.can_view_payments is True
+
+    def test_logs_user_updated_when_can_view_payments_changes(
+        self, service, repo, audit
+    ):
+        existing = make_user(can_view_payments=True)
+        updated = make_user(can_view_payments=False)
+        repo.get_by_id.return_value = existing
+        repo.update.return_value = updated
+        admin = make_user(id=5)
+
+        service.update_user(1, UserUpdate(can_view_payments=False), updated_by=admin)
+
+        audit.log_user_updated.assert_called_once_with(updated, admin)
+        audit.log_user_deactivated.assert_not_called()
 
 
 class TestGeneratePassword:

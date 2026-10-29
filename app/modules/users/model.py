@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.base_model import Base
@@ -18,6 +18,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.USER)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_view_payments: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", use_alter=True, name="fk_users_created_by"),
         nullable=True,

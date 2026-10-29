@@ -18,6 +18,7 @@ from app.scheduler.jobs import (
     dispatch_datajud_sync_job,
     dispatch_deadline_alerts_job,
     dispatch_google_pull_job,
+    dispatch_payment_reminders_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,9 +60,16 @@ def start_scheduler() -> None:
         id="google_pull",
         replace_existing=True,
     )
+    rem_hour, rem_minute = settings.deadline_alert_cron_parts
+    _scheduler.add_job(
+        dispatch_payment_reminders_job,
+        trigger=CronTrigger(hour=rem_hour, minute=rem_minute),
+        id="payment_reminders",
+        replace_existing=True,
+    )
     _scheduler.start()
     logger.info(
-        "Scheduler started — deadline alerts cron at %02d:%02d; "
+        "Scheduler started — deadline alerts and payment reminders cron at %02d:%02d; "
         "DataJud sync every %dh; Google pull every %dmin",
         hour,
         minute,

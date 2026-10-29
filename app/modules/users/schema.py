@@ -15,6 +15,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     role: Role | None = None
     is_active: bool | None = None
+    can_view_payments: bool | None = None
 
 
 class UserRead(BaseModel):
@@ -23,6 +24,7 @@ class UserRead(BaseModel):
     email: str
     role: Role
     is_active: bool
+    can_view_payments: bool
     created_by: int | None
     updated_by: int | None
     created_at: datetime

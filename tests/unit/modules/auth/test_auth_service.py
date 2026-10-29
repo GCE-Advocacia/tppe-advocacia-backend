@@ -32,6 +32,7 @@ def make_user(**kwargs) -> User:
         ).decode(),
         "role": Role.USER,
         "is_active": True,
+        "can_view_payments": False,
         "reset_token_hash": None,
         "reset_token_expires_at": None,
     }
@@ -133,6 +134,19 @@ class TestLogin:
             result.access_token, settings.jwt_secret_key, algorithms=["HS256"]
         )
         assert payload["role"] == "ADMIN"
+
+    def test_token_contains_can_view_payments(self, service, repo):
+        from app.config.settings import get_settings
+
+        settings = get_settings()
+        repo.get_by_email.return_value = make_user(can_view_payments=True)
+
+        result = service.login(make_login_payload())
+
+        payload = jwt.decode(
+            result.access_token, settings.jwt_secret_key, algorithms=["HS256"]
+        )
+        assert payload["can_view_payments"] is True
 
     def test_token_contains_expiry(self, service, repo):
         from app.config.settings import get_settings

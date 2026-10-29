@@ -6,7 +6,7 @@ manual usado pelos controllers.
 """
 
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app.config.settings import get_settings
 from app.db.database import SessionLocal
@@ -28,6 +28,7 @@ from app.modules.notifications.service import NotificationService
 from app.modules.processes.repository import ProcessRepository
 from app.modules.users.repository import UserRepository
 from app.shared.deps.google import get_google_calendar_client
+from app.modules.payments.service import PaymentReminderService
 
 logger = logging.getLogger(__name__)
 
@@ -129,3 +130,25 @@ def dispatch_datajud_sync_job() -> None:
         )
     except Exception:
         logger.exception("DataJud sync job failed")
+
+def dispatch_payment_reminders_job() -> None:
+    """Job diário: despacha e-mails de cobrança D-1 e D-0."""
+    logger.info("Payment reminders job started")
+    try:
+        with SessionLocal() as db:
+            service = PaymentReminderService(
+                db=db, 
+                email_service=ResendEmailService()
+            )
+            
+            today = datetime.now(timezone.utc).date()
+            results = service.dispatch(today)
+            
+        logger.info(
+            "Payment reminders job finished — %d sent, %d failed, %d no_email",
+            results["sent"],
+            results["failed"],
+            results["no_email"],
+        )
+    except Exception:
+        logger.exception("Payment reminders job failed")

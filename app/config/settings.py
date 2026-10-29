@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -84,10 +84,38 @@ class Settings(BaseSettings):
     lead_dedup_window_hours: int = Field(1, validation_alias="LEAD_DEDUP_WINDOW_HOURS")
 
     upload_dir: str = Field("uploads/media", validation_alias="UPLOAD_DIR")
+    media_public_base_url: str = Field(
+        "http://localhost:8000/api/v1/media", validation_alias="MEDIA_PUBLIC_BASE_URL"
+    )
+    media_bucket: str = Field(
+        "", validation_alias="MEDIA_BUCKET", validate_default=True
+    )
+    s3_endpoint_url: str = Field("", validation_alias="AWS_ENDPOINT_URL_S3")
+    s3_region: str = Field("us-east-2", validation_alias="AWS_REGION")
+    s3_access_key_id: str = Field("", validation_alias="AWS_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field("", validation_alias="AWS_SECRET_ACCESS_KEY")
     max_file_size_mb: int = Field(5, validation_alias="MAX_FILE_SIZE_MB")
     allowed_mime_types: list[str] = Field(
         default=["image/jpeg", "image/png"],
         validation_alias="ALLOWED_MIME_TYPES",
+    )
+    documents_upload_dir: str = Field(
+        "uploads/documents", validation_alias="DOCUMENTS_UPLOAD_DIR"
+    )
+    document_storage: Literal["local", "drive"] = Field(
+        "local", validation_alias="DOCUMENT_STORAGE", validate_default=True
+    )
+    document_max_file_size_mb: int = Field(
+        20, validation_alias="DOCUMENT_MAX_FILE_SIZE_MB"
+    )
+    document_allowed_mime_types: list[str] = Field(
+        default=[
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ],
+        validation_alias="DOCUMENT_ALLOWED_MIME_TYPES",
     )
 
     kanban_max_per_column: int = Field(100, validation_alias="KANBAN_MAX_PER_COLUMN")
@@ -107,6 +135,10 @@ class Settings(BaseSettings):
     )
     google_token_encryption_key: str = Field(
         "", validation_alias="GOOGLE_TOKEN_ENCRYPTION_KEY"
+    )
+    google_drive_redirect_uri: str = Field(
+        "http://localhost:8000/api/v1/integrations/google-drive/callback",
+        validation_alias="GOOGLE_DRIVE_REDIRECT_URI",
     )
     google_pull_interval_minutes: int = Field(
         5,
@@ -135,6 +167,35 @@ class Settings(BaseSettings):
             )
         return jwt_secret_key
 
+    @field_validator("media_bucket")
+    @classmethod
+    def object_storage_in_production(
+        cls, media_bucket: str, info: ValidationInfo
+    ) -> str:
+        # Em produção o disco do servidor é temporário: imagens só podem ir
+        # para o object storage.
+        if info.data.get("app_env") == "production" and not media_bucket:
+            raise ValueError("MEDIA_BUCKET must be set in production")
+        return media_bucket
+
+    @field_validator("document_storage")
+    @classmethod
+    def drive_documents_in_production(
+        cls, document_storage: str, info: ValidationInfo
+    ) -> str:
+        # O disco do Render é temporário: em produção os documentos só podem
+        # ir para o Google Drive.
+        if info.data.get("app_env") == "production" and document_storage != "drive":
+            raise ValueError("DOCUMENT_STORAGE must be 'drive' in production")
+        return document_storage
+
+    @field_validator("datajud_sync_user_id", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("deadline_alert_intervals", mode="before")
     @classmethod
     def parse_intervals(cls, value: object) -> object:
@@ -159,6 +220,15 @@ class Settings(BaseSettings):
             and self.google_client_secret
             and self.google_redirect_uri
             and self.google_token_encryption_key
+        )
+
+    @property
+    def google_drive_configured(self) -> bool:
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_token_encryption_key
+            and self.google_drive_redirect_uri
         )
 
     @property

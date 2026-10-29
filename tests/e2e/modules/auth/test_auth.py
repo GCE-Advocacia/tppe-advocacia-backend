@@ -1,5 +1,9 @@
 import re
 
+import jwt
+
+from app.config.settings import get_settings
+
 LOGIN_URL = "/api/v1/auth/login"
 REQUEST_URL = "/api/v1/auth/password-reset/request"
 CONFIRM_URL = "/api/v1/auth/password-reset/confirm"
@@ -44,6 +48,18 @@ class TestLogin:
         )
 
         assert response.json()["data"]["token_type"] == "bearer"
+
+    def test_token_contains_can_view_payments_false_for_new_user(
+        self, client, active_user
+    ):
+        response = client.post(
+            LOGIN_URL,
+            json={"email": active_user["email"], "password": active_user["password"]},
+        )
+
+        token = response.json()["data"]["access_token"]
+        payload = jwt.decode(token, get_settings().jwt_secret_key, algorithms=["HS256"])
+        assert payload["can_view_payments"] is False
 
     def test_wrong_password_returns_401(self, client, active_user):
         response = client.post(

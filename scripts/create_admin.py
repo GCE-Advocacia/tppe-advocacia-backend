@@ -40,7 +40,21 @@ def create_admin(name: str, email: str, password: str) -> None:
 if __name__ == "__main__":
     import getpass
 
-    name = input("Name: ")
-    email = input("Email: ")
-    password = getpass.getpass("Password: ")
+    if len(sys.argv) == 4:
+        name = sys.argv[1]
+        email = sys.argv[2]
+        password = sys.argv[3]
+    elif len(sys.argv) > 1:
+        print("Uso:")
+        print("  Interativo: python scripts/create_admin.py")
+        print("  Argumentos: python scripts/create_admin.py <nome> <email> <senha>")
+        sys.exit(1)
+    else:
+        name = input("Name: ")
+        email = input("Email: ")
+        try:
+            password = getpass.getpass("Password: ")
+        except Exception:
+            password = input("Password: ")
+
     create_admin(name, email, password)
