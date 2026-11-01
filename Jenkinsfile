@@ -29,7 +29,7 @@ pipeline {
 
         stage('Build & Push Image (prod)') {
             when {
-                branch 'main'
+                branch 'homol'
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'REGISTRY_GITHUB', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
@@ -45,7 +45,7 @@ pipeline {
 
         stage('Deploy prod via Ansible') {
             when {
-                branch 'main'
+                branch 'homol'
             }
             steps {
                 withCredentials([
