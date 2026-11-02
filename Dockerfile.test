@@ -1,0 +1,22 @@
+FROM ghcr.io/bessazs/docker-images/python:3.10-slim 
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends libcairo2 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copia arquivos de dependência
+COPY requirements.txt .
+COPY pyproject.toml .
+
+# Instala dependências de produção e as de teste que faltavam
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir pytest pytest-cov httpx Pillow boto3
+
+# Copia todo o código da aplicação e a pasta tests/
+COPY . .
+
+# Mantém como root no teste para garantir permissões de gravação ao gerar relatórios XML

@@ -15,17 +15,31 @@ pipeline {
             }
         }
 
-        // stage('Run Tests') {
-        //     when {
-        //         branch 'homol'
-        //     }
-        //     steps {
-        //         sh '''
-        //             docker build -t app-test:${IMAGE_TAG} .
-        //             docker run --rm app-test:${IMAGE_TAG} pytest
-        //         '''
-        //     }
-        // }
+        stage('Run Tests') {
+             steps {
+                 // Cria o diretório no workspace do Jenkins para os resultados
+                 sh 'mkdir -p test-reports'
+                 
+                 sh '''
+                     # Constrói a imagem apontando especificamente para o arquivo de testes
+                     docker build -f Dockerfile.test -t app-test:${IMAGE_TAG} .
+                     
+                     # Roda o pytest e salva o resultado em um arquivo XML dentro do container
+                     docker run --name test-container-${BUILD_NUMBER} app-test:${IMAGE_TAG} pytest --junitxml=results.xml
+                 '''
+             }
+             post {
+                 always {
+                     // Copia o XML gerado de dentro do container para o workspace local do Jenkins e remove o container
+                     sh '''
+                         docker cp test-container-${BUILD_NUMBER}:/app/results.xml test-reports/ || true
+                         docker rm -f test-container-${BUILD_NUMBER} || true
+                     '''
+                     // Habilita a visualização do gráfico de testes no painel da pipeline
+                     junit testResults: 'test-reports/*.xml', allowEmptyResults: true
+                 }
+             }
+         }
 
         stage('Build & Push Image (prod)') {
             when {
