@@ -21,8 +21,8 @@ class FakeEmailService:
     def __init__(self):
         self.sent_emails = []
 
-    def send(self, to: str, subject: str, body: str):
-        self.sent_emails.append({"to": to, "subject": subject, "body": body})
+    def send(self, to: str, subject: str, html: str):
+        self.sent_emails.append({"to": to, "subject": subject, "body": html})
 
 @pytest.fixture
 def user_id(db: Session) -> int:
