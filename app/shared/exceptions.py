@@ -587,3 +587,30 @@ class EmailNotCancellableError(AppException):
 class EmailNotResendableError(AppException):
     def __init__(self, message: str) -> None:
         super().__init__(status.HTTP_409_CONFLICT, "EMAIL_NOT_RESENDABLE", message)
+
+
+class GoogleDriveNotConnectedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_409_CONFLICT,
+            "GOOGLE_DRIVE_NOT_CONNECTED",
+            "Google Drive is not connected",
+        )
+
+
+class GoogleDriveUnavailableError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "GOOGLE_DRIVE_UNAVAILABLE",
+            "Google Drive is unavailable",
+        )
+
+
+class GoogleDriveNotConfiguredError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "GOOGLE_DRIVE_NOT_CONFIGURED",
+            "Google Drive integration is not configured on the server",
+        )

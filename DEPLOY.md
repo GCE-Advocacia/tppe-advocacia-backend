@@ -1,6 +1,170 @@
-# Deploy — VPS Hostinger (Ubuntu 22.04)
+# Deploy
 
-Guia completo: VPS zerada → API em produção → domínio + HTTPS → CI/CD automático.
+O sistema roda em serviços de nuvem gratuitos ([US21](https://gce-advocacia.github.io/tppe-advocacia-docs/gce/backlog/us21/)):
+
+| Parte | Serviço | Observações |
+|---|---|---|
+| API (este repositório) | [Render](https://render.com) | Web Service a partir do `Dockerfile`, plano gratuito (512 MB, hiberna após ~15 min sem acesso) |
+| Frontend | [Netlify](https://netlify.com) | Repositório `tppe-advocacia-frontend` |
+| Banco de dados | [Neon](https://neon.com) | PostgreSQL |
+| Imagens e logos | Neon Object Storage | Bucket com leitura pública |
+| Documentos dos processos | Google Drive do escritório | Conectado pelo administrador na página de Processos ([US09](https://gce-advocacia.github.io/tppe-advocacia-docs/gce/backlog/us09/)) |
+| E-mails | [Resend](https://resend.com) | Exige domínio verificado para enviar aos clientes |
+| API acordada | GitHub Actions | `.github/workflows/keep-alive.yml` acessa `/api/v1/health` a cada 10 min |
+
+As contas devem ficar no nome do escritório, com a equipe como convidada.
+
+O guia de deploy em VPS da US20 continua no [anexo](#anexo--deploy-em-vps-hostinger-ubuntu-2204), mais abaixo.
+
+---
+
+## Nuvem — Índice
+
+1. [Banco no Neon](#n1-banco-no-neon)
+2. [Object Storage no Neon](#n2-object-storage-no-neon)
+3. [API no Render](#n3-api-no-render)
+4. [Variáveis de ambiente da API](#n4-variáveis-de-ambiente-da-api)
+5. [Frontend no Netlify](#n5-frontend-no-netlify)
+6. [Google Cloud (Drive e Calendar)](#n6-google-cloud-drive-e-calendar)
+7. [Resend](#n7-resend)
+8. [Keep alive](#n8-keep-alive)
+9. [Primeiro acesso e verificação](#n9-primeiro-acesso-e-verificação)
+10. [Ordem dos deploys e cuidados](#n10-ordem-dos-deploys-e-cuidados)
+
+---
+
+## N1. Banco no Neon
+
+1. Crie um projeto no Neon (região `us-east-2`, a mesma do Object Storage).
+2. Em **Connect**, copie a conexão **direta**: o host **sem** `-pooler`. As migrações do Alembic e o `psycopg` funcionam melhor fora do pooler, e com 1 worker sobram conexões.
+3. A conexão `postgresql://<usuário>:<senha>@<host>/<banco>?sslmode=require` vira as variáveis `POSTGRES_*` e `PGSSLMODE=require` (seção [N4](#n4-variáveis-de-ambiente-da-api)).
+
+As migrações rodam sozinhas a cada deploy: o `scripts/start.sh` executa `alembic upgrade head` antes do gunicorn.
+
+## N2. Object Storage no Neon
+
+1. No projeto do Neon, crie um bucket com acesso **`public_read`** (por exemplo, `uploads`). O nível de acesso se muda pelo Console ou pela API do Neon, não pelo S3.
+2. Gere uma credencial de storage com os escopos `storage:read` e `storage:write`. **Ela só aparece uma vez**: guarde no gerenciador de senhas.
+3. Anote:
+   - o endpoint S3 da branch, que vai em `AWS_ENDPOINT_URL_S3`;
+   - a URL pública do bucket, no formato `https://<branch-id>.storage.<região>.aws.neon.tech/<bucket>`, que vai em `MEDIA_PUBLIC_BASE_URL`.
+4. Teste abrindo no navegador a URL de um arquivo qualquer enviado ao bucket.
+
+O bucket recebe só imagens públicas (landing page, capas de artigos, logos e favicon). **Nunca** coloque documentos nele.
+
+## N3. API no Render
+
+1. **New → Web Service**, ligado a este repositório, branch `main`, runtime **Docker**.
+2. Deixe o campo **Docker Command** vazio. O `CMD` do `Dockerfile` chama `scripts/start.sh`, que aplica as migrações e sobe o gunicorn com `WEB_CONCURRENCY` workers (o Render define 1) na porta `$PORT`.
+3. **Health Check Path:** `/api/v1/health`.
+4. Configure as variáveis de ambiente (seção [N4](#n4-variáveis-de-ambiente-da-api)) **antes** do primeiro deploy.
+5. **Auto-Deploy:** ligado. Cada merge na `main` gera um deploy.
+
+Observações:
+
+- O Shell do Render é pago. Comandos administrativos, como criar o admin, rodam da sua máquina apontando para o Neon (seção [N9](#n9-primeiro-acesso-e-verificação)).
+- O disco do Render é apagado a cada deploy, por isso nenhum arquivo fica nele em produção.
+- O plano gratuito dá 750 horas por mês. Um serviço ligado 24/7 usa ~744, então ele deve ser o único serviço gratuito na conta.
+
+## N4. Variáveis de ambiente da API
+
+Configure em **Render → Environment**. As que não aparecem aqui usam o valor padrão de `app/config/settings.py`.
+
+| Variável | Valor em produção | Observação |
+|---|---|---|
+| `APP_ENV` | `production` | Desliga o Swagger e ativa as validações de produção |
+| `JWT_SECRET_KEY` | aleatório, 32+ caracteres | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `POSTGRES_HOST` | host direto do Neon (sem `-pooler`) | |
+| `POSTGRES_PORT` | `5432` | |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | da conexão do Neon | |
+| `PGSSLMODE` | `require` | Lida pelo driver do Postgres; o Neon exige SSL |
+| `PGCHANNELBINDING` | `require` | Opcional |
+| `FRONTEND_URL` | `https://<site>.netlify.app` | Sem `/` no final. Usada no CORS e nos redirecionamentos do Google |
+| `MEDIA_BUCKET` | nome do bucket (ex.: `uploads`) | **Obrigatória em produção**: sem ela, a API não sobe |
+| `MEDIA_PUBLIC_BASE_URL` | URL pública do bucket | Base das URLs das imagens |
+| `AWS_ENDPOINT_URL_S3` | endpoint S3 do Neon | |
+| `AWS_REGION` | `us-east-2` | |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | credencial de storage do Neon | |
+| `DOCUMENT_STORAGE` | `drive` | **Obrigatória em produção**: sem ela, a API não sobe |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | credencial OAuth do Google Cloud | |
+| `GOOGLE_TOKEN_ENCRYPTION_KEY` | chave Fernet | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Trocar a chave invalida as conexões já feitas |
+| `GOOGLE_REDIRECT_URI` | `https://<api>.onrender.com/api/v1/integrations/google/callback` | Google Calendar. **Não deixe `localhost`** |
+| `GOOGLE_DRIVE_REDIRECT_URI` | `https://<api>.onrender.com/api/v1/integrations/google-drive/callback` | Google Drive. **Não deixe `localhost`** |
+| `RESEND_API_KEY` | chave do Resend | Obrigatória: a API não sobe sem ela |
+| `RESEND_FROM_EMAIL` | `nao-responda@<domínio do escritório>` | Precisa ser de um domínio verificado no Resend |
+| `SCHEDULER_ENABLED` | `true` | O agendador roda dentro da API (1 worker, então não duplica) |
+| `DEADLINE_ALERT_CRON` | `09:00` | O servidor está em UTC: 09:00 UTC = 06:00 em Brasília. Vale também para os lembretes de pagamento |
+| `DATAJUD_API_KEY` | chave do Datajud | Sincronização de movimentações |
+
+## N5. Frontend no Netlify
+
+1. **Add new site → Import an existing project**, ligado ao `tppe-advocacia-frontend`, branch `main`.
+2. Build: `npm run build`; diretório publicado: `dist`.
+3. Variável **`VITE_API_URL`** = `https://<api>.onrender.com/api/v1`. Ela é lida **no build**: depois de mudar, rode **Trigger deploy → Clear cache and deploy site**.
+4. O `netlify.toml` do frontend já tem o redirect da SPA (`/* → /index.html`).
+
+## N6. Google Cloud (Drive e Calendar)
+
+No projeto do Google Cloud do escritório:
+
+1. **APIs e serviços → Biblioteca:** ative a **Google Drive API** e a **Google Calendar API**.
+2. **Tela de consentimento OAuth** (*Google Auth Platform*):
+   - **Data access:** escopos `https://www.googleapis.com/auth/drive.file` e `https://www.googleapis.com/auth/calendar.events`;
+   - **Audience:** publique o app (**In production**). Em modo de teste, o token expira em 7 dias e o Drive se desconecta toda semana. Sem verificação, aparece o aviso "app não verificado" ao conectar (**Avançado → continuar**).
+3. **Clients:** crie (ou edite) a credencial **Web application** e adicione em **URIs de redirecionamento autorizados**:
+   - `https://<api>.onrender.com/api/v1/integrations/google/callback`
+   - `https://<api>.onrender.com/api/v1/integrations/google-drive/callback`
+   - opcionalmente, as mesmas URLs com `http://localhost:8000`, para desenvolvimento.
+
+   O valor precisa ser **idêntico** ao das variáveis `GOOGLE_*_REDIRECT_URI`. Se não for, o Google mostra `redirect_uri_mismatch`.
+
+   **Origens JavaScript autorizadas** não são necessárias, porque o fluxo OAuth é feito pelo servidor.
+4. O **Client Secret** só aparece na criação: copie direto para o Render.
+
+## N7. Resend
+
+1. Crie a conta e adicione o **domínio do escritório**.
+2. Cadastre no DNS do domínio os registros que o Resend mostrar e espere a verificação.
+3. Crie uma API key e configure `RESEND_API_KEY` e `RESEND_FROM_EMAIL` no Render.
+
+Sem domínio verificado, o Resend só entrega e-mails para o dono da conta, e os clientes não recebem alertas nem lembretes.
+
+## N8. Keep alive
+
+O workflow `.github/workflows/keep-alive.yml` acessa `/api/v1/health` a cada 10 minutos para a API não hibernar. Com ela acordada, o agendador interno roda os alertas de prazo, os lembretes de pagamento e as sincronizações.
+
+- **URL configurável:** pela variável de repositório `API_HEALTH_URL` (*Settings → Secrets and variables → Actions → Variables*). Sem ela, usa a URL atual do Render.
+- **Teste manual:** **Actions → Keep alive → Run workflow**.
+- **Atrasos:** o GitHub pode atrasar execuções agendadas em horário de pico, e a API pode hibernar de vez em quando. Um job diário que cair nesse intervalo não roda naquele dia.
+- **Desativação:** o GitHub **desativa workflows agendados após 60 dias sem commits** no repositório. Quando isso acontecer, reative na aba Actions.
+
+## N9. Primeiro acesso e verificação
+
+1. **Criar o administrador**, da sua máquina, apontando para o Neon (PowerShell, dentro deste repositório):
+
+   ```powershell
+   $env:POSTGRES_HOST="<host>"; $env:POSTGRES_USER="<usuário>"; $env:POSTGRES_PASSWORD="<senha>"; $env:POSTGRES_DB="<banco>"; $env:PGSSLMODE="require"; $env:JWT_SECRET_KEY="qualquer-coisa"; $env:RESEND_API_KEY="x"
+   python scripts/create_admin.py
+   ```
+
+2. **API:** `https://<api>.onrender.com/api/v1/health` deve responder `"status": "ok"` e `"database": "connected"`.
+3. **Login:** entre no site do Netlify com o administrador.
+4. **Imagens:** troque uma logo e confira se a URL dela começa com `MEDIA_PUBLIC_BASE_URL`.
+5. **Drive:** na página de Processos, clique em **Conectar Google Drive**. Depois envie, baixe e exclua um documento, e confira a pasta `Sistema Advocacia — Documentos/<número do processo>/` no Drive.
+
+## N10. Ordem dos deploys e cuidados
+
+- **Variáveis antes do merge:** quando uma mudança exige variável nova (como `MEDIA_BUCKET` ou `DOCUMENT_STORAGE`), configure no Render **antes** do merge. Senão, o deploy falha e o Render mantém a versão anterior no ar.
+- **Backend antes do frontend:** quando uma história mexe nos dois, faça o deploy do backend antes. A API recusa campos desconhecidos (`extra="forbid"`), e um frontend mais novo que a API recebe **422 "Extra inputs are not permitted"**.
+- **Deploy falhou?** Veja **Render → Events/Logs**. Os erros mais comuns:
+  - variável obrigatória faltando (`Field required`, `MEDIA_BUCKET must be set`, `DOCUMENT_STORAGE must be 'drive'`);
+  - falha de conexão com o Neon (host com `-pooler` ou `PGSSLMODE` ausente).
+
+---
+
+# Anexo — Deploy em VPS Hostinger (Ubuntu 22.04)
+
+Guia usado na US20, antes da migração para a nuvem: VPS zerada → API em produção → domínio + HTTPS → CI/CD automático.
 
 ---
 

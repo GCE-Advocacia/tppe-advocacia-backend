@@ -14,10 +14,15 @@ from app.shared.db.base_model import Base
 
 class ExternalApiProvider(str, Enum):
     DATAJUD = "DATAJUD"
+    GOOGLE_DRIVE = "GOOGLE_DRIVE"
 
 
 class ExternalApiOperation(str, Enum):
     PROCESS_MOVEMENT_SYNC = "PROCESS_MOVEMENT_SYNC"
+    DOCUMENT_UPLOAD = "DOCUMENT_UPLOAD"
+    DOCUMENT_DOWNLOAD = "DOCUMENT_DOWNLOAD"
+    DOCUMENT_DELETE = "DOCUMENT_DELETE"
+    OAUTH = "OAUTH"
 
 
 class ExternalApiStatus(str, Enum):

@@ -10,11 +10,15 @@ class ListItem(BaseModel):
 
 
 _ListField = Annotated[list[ListItem], Field(max_length=50)]
+_ButtonRadius = Annotated[
+    str, Field(max_length=20, pattern=r"^(?:[0-9]|1[0-9]|2[0-4]|999)px$", strict=True)
+]
 
 
 class OfficeConfigUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    button_radius: _ButtonRadius = "6px"
     office_name: str | None = Field(None, max_length=255)
     cnpj: str | None = Field(None, max_length=18)
     address: str | None = Field(None, max_length=500)
@@ -62,6 +66,7 @@ class OfficeConfigUpdate(BaseModel):
 
 class OfficeConfigRead(BaseModel):
     id: int
+    button_radius: _ButtonRadius = "6px"
 
     office_name: str | None
     logo_url: str | None = None

@@ -20,6 +20,7 @@ class ProcessDocumentRepository:
         mime_type: str,
         size_bytes: int,
         uploaded_by: int,
+        storage: str = "local",
     ) -> ProcessDocument:
         document = ProcessDocument(
             process_id=process_id,
@@ -28,6 +29,7 @@ class ProcessDocumentRepository:
             mime_type=mime_type,
             size_bytes=size_bytes,
             uploaded_by=uploaded_by,
+            storage=storage,
         )
         self.db.add(document)
         self.db.flush()

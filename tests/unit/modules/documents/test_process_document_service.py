@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,6 +11,7 @@ from app.modules.documents.storage import StoredFile
 from app.modules.users.model import User
 from app.shared.exceptions import (
     ForbiddenError,
+    GoogleDriveUnavailableError,
     ProcessDocumentNotFoundError,
     ProcessNotFoundError,
 )
@@ -36,6 +36,7 @@ def make_document(uploaded_by: int | None = 5) -> ProcessDocument:
     document.id = 10
     document.process_id = 1
     document.stored_name = STORED.stored_name
+    document.storage = "local"
     document.uploaded_by = uploaded_by
     return document
 
@@ -61,13 +62,14 @@ def process_repo():
 @pytest.fixture
 def storage():
     mock = MagicMock()
+    mock.name = "local"
     mock.save.return_value = STORED
     return mock
 
 
 @pytest.fixture
 def service(repo, process_repo, storage):
-    return ProcessDocumentService(repo, process_repo, storage)
+    return ProcessDocumentService(repo, process_repo, {"local": storage}, "local")
 
 
 class TestSanitizeOriginalName:
@@ -118,6 +120,7 @@ class TestUpload:
             mime_type="application/pdf",
             size_bytes=123,
             uploaded_by=7,
+            storage="local",
         )
 
     def test_upload_removes_file_when_db_fails(self, service, repo, storage):
@@ -153,11 +156,11 @@ class TestGetDownload:
     def test_looks_up_document_within_process(self, service, repo, storage):
         document = make_document()
         repo.get_by_id.return_value = document
-        storage.path_for.return_value = Path("/tmp/x.pdf")
+        storage.read.return_value = b"%PDF"
 
-        assert service.get_download(1, 10) == (document, Path("/tmp/x.pdf"))
+        assert service.get_download(1, 10) == (document, b"%PDF")
         repo.get_by_id.assert_called_once_with(document_id=10, process_id=1)
-        storage.path_for.assert_called_once_with(STORED.stored_name)
+        storage.read.assert_called_once_with(STORED.stored_name)
 
 
 class TestDelete:
@@ -177,7 +180,7 @@ class TestDelete:
         service.delete(1, 10, current_user=make_user(5))
 
         repo.delete.assert_called_once_with(document)
-        storage.delete.assert_called_once_with(STORED.stored_name)
+        storage.delete.assert_called_once_with(STORED.stored_name, user_id=5)
 
     def test_admin_can_delete_document_of_removed_user(self, service, repo, storage):
         document = make_document(uploaded_by=None)
@@ -186,4 +189,72 @@ class TestDelete:
         service.delete(1, 10, current_user=make_user(1, Role.ADMIN))
 
         repo.delete.assert_called_once_with(document)
-        storage.delete.assert_called_once_with(STORED.stored_name)
+        storage.delete.assert_called_once_with(STORED.stored_name, user_id=1)
+
+    def test_storage_failure_after_commit_does_not_fail_delete(
+        self, service, repo, storage
+    ):
+        document = make_document(uploaded_by=5)
+        repo.get_by_id.return_value = document
+        storage.delete.side_effect = GoogleDriveUnavailableError()
+
+        service.delete(1, 10, current_user=make_user(5))
+
+        repo.delete.assert_called_once_with(document)
+
+
+class TestStorageSelection:
+    def test_upload_passes_process_data_to_active_storage(
+        self, repo, process_repo, storage
+    ):
+        process_repo.get_by_id.return_value.number = "00012345620248260100"
+        drive = MagicMock()
+        drive.save.return_value = StoredFile(
+            stored_name="drive-id",
+            mime_type="application/pdf",
+            size_bytes=3,
+            storage="drive",
+        )
+        service = ProcessDocumentService(
+            repo, process_repo, {"local": storage, "drive": drive}, "drive"
+        )
+
+        service.upload(1, make_upload("a.pdf"), current_user=make_user(7))
+
+        storage.save.assert_not_called()
+        drive.save.assert_called_once()
+        kwargs = drive.save.call_args.kwargs
+        assert kwargs == {
+            "process_id": 1,
+            "process_number": "00012345620248260100",
+            "original_name": "a.pdf",
+            "user_id": 7,
+        }
+        assert repo.create.call_args.kwargs["storage"] == "drive"
+
+    def test_download_and_delete_use_the_document_storage(
+        self, repo, process_repo, storage
+    ):
+        drive = MagicMock()
+        document = make_document()
+        repo.get_by_id.return_value = document
+        service = ProcessDocumentService(
+            repo, process_repo, {"local": storage, "drive": drive}, "drive"
+        )
+
+        service.get_download(1, 10)
+        service.delete(1, 10, current_user=make_user(5))
+
+        storage.read.assert_called_once()
+        storage.delete.assert_called_once()
+        drive.read.assert_not_called()
+        drive.delete.assert_not_called()
+
+    def test_upload_db_failure_keeps_original_error_when_cleanup_fails(
+        self, service, repo, storage
+    ):
+        repo.create.side_effect = RuntimeError("db down")
+        storage.delete.side_effect = GoogleDriveUnavailableError()
+
+        with pytest.raises(RuntimeError, match="db down"):
+            service.upload(1, make_upload(), current_user=make_user())

@@ -28,6 +28,11 @@ class ProcessDocument(Base):
     stored_name: Mapped[str] = mapped_column(String(64), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Onde o arquivo está guardado: "local" (disco) ou "drive" (Google Drive,
+    # com o ID do arquivo em stored_name).
+    storage: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="local", server_default="local"
+    )
     uploaded_by: Mapped[int | None] = mapped_column(
         ForeignKey(
             "users.id",

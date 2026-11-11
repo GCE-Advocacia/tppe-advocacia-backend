@@ -15,6 +15,8 @@ def _settings(**env) -> Settings:
         "SMTP_FROM_EMAIL": "",
         "RESEND_API_KEY": "",
     }
+    if env.get("APP_ENV") == "production":
+        base.update(MEDIA_BUCKET="bucket", DOCUMENT_STORAGE="drive")
     base.update(env)
     return Settings(_env_file=None, **base)
 
