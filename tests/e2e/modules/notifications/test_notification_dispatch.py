@@ -13,6 +13,13 @@ from app.modules.users.repository import UserRepository
 from app.shared.types import Role
 
 
+@pytest.fixture
+def fake_email(queued_email):
+    # As notificações vão para a fila.
+    return queued_email
+
+
+
 def _hash(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 

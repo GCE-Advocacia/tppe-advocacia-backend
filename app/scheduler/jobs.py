@@ -6,7 +6,7 @@ manual usado pelos controllers.
 """
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from app.config.settings import get_settings
 from app.db.database import SessionLocal
@@ -18,7 +18,9 @@ from app.modules.deadlines.repository import (
     DeadlineRepository,
 )
 from app.modules.deadlines.service import DeadlineService
-from app.modules.email.resend_service import ResendEmailService
+from app.modules.email_outbox.alerts import EmailAlerts
+from app.modules.email_outbox.repository import EmailOutboxRepository
+from app.modules.email_outbox.service import EmailOutbox, EmailOutboxWorker
 from app.modules.external_api_logs.notifier import ExternalApiFailureNotifier
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
 from app.modules.forensic_holidays.repository import ForensicHolidayRepository
@@ -27,6 +29,11 @@ from app.modules.notifications.repository import NotificationPreferenceRepositor
 from app.modules.notifications.service import NotificationService
 from app.modules.processes.repository import ProcessRepository
 from app.modules.users.repository import UserRepository
+from app.shared.deps.email import (
+    build_queued_sender,
+    get_email_renderer,
+    get_email_service,
+)
 from app.shared.deps.google import get_google_calendar_client
 from app.modules.payments.service import PaymentReminderService
 
@@ -42,7 +49,7 @@ def dispatch_deadline_alerts_job() -> None:
             notification_service = NotificationService(
                 NotificationPreferenceRepository(db),
                 UserRepository(db),
-                ResendEmailService(),
+                build_queued_sender(db),
             )
             service = DeadlineService(
                 repository=DeadlineRepository(db),
@@ -105,7 +112,7 @@ def dispatch_datajud_sync_job() -> None:
             notification_service = NotificationService(
                 NotificationPreferenceRepository(db),
                 users,
-                ResendEmailService(),
+                build_queued_sender(db),
             )
             log_repository = ExternalApiLogRepository(db)
             service = DataJudService(
@@ -132,23 +139,54 @@ def dispatch_datajud_sync_job() -> None:
         logger.exception("DataJud sync job failed")
 
 def dispatch_payment_reminders_job() -> None:
-    """Job diário: despacha e-mails de cobrança D-1 e D-0."""
+    """Job diário: põe na fila os lembretes de cobrança D-5 e D-0."""
     logger.info("Payment reminders job started")
     try:
         with SessionLocal() as db:
-            service = PaymentReminderService(
-                db=db, 
-                email_service=ResendEmailService()
-            )
-            
+            service = PaymentReminderService(db)
             today = datetime.now(timezone.utc).date()
             results = service.dispatch(today)
-            
         logger.info(
-            "Payment reminders job finished — %d sent, %d failed, %d no_email",
-            results["sent"],
-            results["failed"],
+            "Payment reminders job finished — %d queued, %d no_email",
+            results["queued"],
             results["no_email"],
         )
     except Exception:
         logger.exception("Payment reminders job failed")
+
+
+def build_email_outbox_worker(db) -> EmailOutboxWorker:
+    settings = get_settings()
+    outbox = EmailOutbox(EmailOutboxRepository(db))
+    return EmailOutboxWorker(
+        outbox.repository,
+        get_email_renderer(),
+        get_email_service(),
+        settings,
+        alerts=EmailAlerts(outbox, UserRepository(db), settings),
+        on_finished=[PaymentReminderService(db, outbox).sync_from_email],
+    )
+
+
+def process_email_outbox_job() -> None:
+    """Envia o lote pronto da fila de saída de e-mails."""
+    try:
+        with SessionLocal() as db:
+            sent = build_email_outbox_worker(db).run_once()
+        if sent:
+            logger.info("Email outbox job finished — %d email(s) sent", sent)
+    except Exception:
+        logger.exception("Email outbox job failed")
+
+
+def purge_email_bodies_job() -> None:
+    """Retenção: apaga o corpo dos e-mails antigos e mantém os metadados."""
+    try:
+        settings = get_settings()
+        with SessionLocal() as db:
+            purged = build_email_outbox_worker(db).purge_old_bodies(
+                timedelta(days=settings.email_retention_days)
+            )
+        logger.info("Email retention job finished — %d body(ies) purged", purged)
+    except Exception:
+        logger.exception("Email retention job failed")

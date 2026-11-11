@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -26,11 +27,14 @@ class PaymentStatus(str, Enum):
 
 
 class ReminderKind(str, Enum):
+    # D_MINUS_1 ficou só no histórico: o lembrete antecipado passou a ser D-5.
     D_MINUS_1 = "D_MINUS_1"
+    D_MINUS_5 = "D_MINUS_5"
     D_ZERO = "D_ZERO"
 
 
 class ReminderStatus(str, Enum):
+    QUEUED = "QUEUED"
     SENT = "SENT"
     FAILED = "FAILED"
     NO_EMAIL = "NO_EMAIL"
@@ -78,6 +82,23 @@ class Payment(Base):
             name="fk_payments_created_by",
         ),
         nullable=False,
+    )
+
+    # Vencimentos criados juntos como recorrentes compartilham o recurrence_id.
+    recurrence_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        index=True,
+    )
+
+    installment: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    installments: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -142,6 +163,13 @@ class PaymentReminder(Base):
     error_message: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
+    )
+
+    email_outbox_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("email_outbox.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     sent_at: Mapped[datetime] = mapped_column(

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import details, heading with context %}
+{% block preheader %}Aviso de vencimento hoje.{% endblock %}
+{% block content %}
+{{ heading("Seu pagamento vence hoje") }}
+<p>Olá, {{ client_name }}.</p>
+<p>O pagamento abaixo vence hoje, {{ due_date|data_extenso }}.</p>
+{{ details([
+  ("Referente a", description or "Serviços jurídicos / Honorários"),
+  ("Valor", amount|brl if amount is not none else "Valor a consultar"),
+  ("Vencimento", due_date|data_br),
+]) }}
+<p>Em caso de dúvida, fale com o escritório pelos contatos abaixo.</p>
+<p class="small">Se você já fez o pagamento, desconsidere este aviso.</p>
+{% endblock %}

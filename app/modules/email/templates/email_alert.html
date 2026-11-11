@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button, heading with context %}
+{% block preheader %}{{ title }}{% endblock %}
+{% block content %}
+{{ heading(title) }}
+<p>{{ detail }}</p>
+<p class="small">Registrado em {{ occurred_at|data_hora_br }}.</p>
+{% if system_url %}{{ button(system_url ~ "/sistema/emails", "Ver histórico de e-mails") }}{% endif %}
+{% endblock %}

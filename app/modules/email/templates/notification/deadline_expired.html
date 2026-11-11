@@ -1,0 +1,9 @@
+{% extends "notification/_layout.html" %}
+{% from "_macros.html" import button, details, highlight, heading with context %}
+{% block preheader %}Venceu em {{ due_date|data_br }}{% endblock %}
+{% block content %}
+{{ heading("Prazo vencido") }}
+{% call highlight() %}<strong>Atenção:</strong> o prazo <strong>{{ deadline_type }}</strong> do processo <strong>{{ process_number }}</strong> venceu em <strong>{{ due_date|data_br }}</strong>.{% endcall %}
+<p>Verifique imediatamente a situação processual.</p>
+{% if system_url %}{{ button(system_url ~ "/sistema/processos", "Ver processo") }}{% endif %}
+{% endblock %}

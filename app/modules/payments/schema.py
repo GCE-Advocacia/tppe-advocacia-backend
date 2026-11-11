@@ -12,6 +12,8 @@ class PaymentCreate(BaseModel):
     amount: Decimal | None = Field(default=None, ge=0)
     description: str | None = Field(default=None, max_length=5000)
     status: PaymentStatus = PaymentStatus.PENDING
+    # Quantos meses no total (contando o primeiro). Vazio ou 1: só este.
+    recurrence_months: int | None = Field(default=None, ge=1, le=60)
 
 
 class PaymentUpdate(BaseModel):
@@ -31,6 +33,9 @@ class PaymentRead(BaseModel):
     amount: Decimal | None
     description: str | None
     status: PaymentStatus
+    recurrence_id: str | None = None
+    installment: int | None = None
+    installments: int | None = None
     created_by: int
     created_at: datetime
     updated_at: datetime
@@ -49,4 +54,5 @@ class PaymentReminderRead(BaseModel):
     email: str | None
     status: ReminderStatus
     error_message: str | None
+    email_outbox_id: str | None = None
     sent_at: datetime

@@ -24,6 +24,7 @@ class AuditLogRepository:
         target_user_role: str | None = None,
         target_client_id: int | None = None,
         target_client_name: str | None = None,
+        details: dict | None = None,
     ) -> AuditLog:
         log = AuditLog(
             action=action,
@@ -35,6 +36,7 @@ class AuditLogRepository:
             target_user_role=target_user_role,
             target_client_id=target_client_id,
             target_client_name=target_client_name,
+            details=details,
         )
         self.db.add(log)
         self.db.flush()

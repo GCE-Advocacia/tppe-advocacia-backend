@@ -1,16 +1,18 @@
-import string
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-import bcrypt
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.config.settings import get_settings
+from app.modules.email_outbox.service import EmailOutbox
+from app.modules.users.invite_service import InviteService
 from app.modules.users.model import User
 from app.modules.users.schema import UserCreate, UserUpdate
 from app.modules.users.service import UserService
 from app.shared.exceptions import EmailAlreadyExistsError, UserNotFoundError
-from app.shared.types import Role
+from app.shared.security.one_time_token import OneTimeTokenService
+from app.shared.types import Role, UserStatus
 
 
 def make_integrity_error() -> IntegrityError:
@@ -45,10 +47,8 @@ def repo():
 
 
 @pytest.fixture
-def email():
-    from app.modules.email.fake_service import FakeEmailService
-
-    return FakeEmailService()
+def outbox():
+    return MagicMock(spec=EmailOutbox)
 
 
 @pytest.fixture
@@ -57,12 +57,20 @@ def audit():
 
 
 @pytest.fixture
-def service(repo, email, audit):
-    svc = UserService.__new__(UserService)
-    svc.repository = repo
-    svc.email = email
-    svc.audit = audit
-    return svc
+def invite_repo():
+    repo = MagicMock()
+    repo.get_active_by_user.return_value = None
+    return repo
+
+
+@pytest.fixture
+def invites(invite_repo, repo, outbox):
+    return InviteService(invite_repo, repo, outbox, get_settings())
+
+
+@pytest.fixture
+def service(repo, invites, audit):
+    return UserService(repo, invites, audit)
 
 
 class TestListUsers:
@@ -137,7 +145,7 @@ class TestCreateUser:
                 created_by=make_user(id=1),
             )
 
-    def test_does_not_send_email_when_integrity_error(self, service, repo, email):
+    def test_does_not_enqueue_email_when_integrity_error(self, service, repo, outbox):
         repo.create.side_effect = make_integrity_error()
 
         with pytest.raises(EmailAlreadyExistsError):
@@ -146,28 +154,53 @@ class TestCreateUser:
                 created_by=make_user(id=1),
             )
 
-        assert email.sent == []
+        outbox.enqueue.assert_not_called()
 
-    def test_stores_hashed_password_not_plain_text(self, service, repo):
+    def test_creates_invited_user_without_password(self, service, repo):
         repo.create.return_value = make_user()
 
         service.create_user(
             UserCreate(name="Alice", email="alice@test.com"), created_by=make_user(id=1)
         )
 
-        hashed = repo.create.call_args.kwargs["hashed_password"]
-        assert hashed.startswith("$2b$")
+        kwargs = repo.create.call_args.kwargs
+        assert kwargs["hashed_password"] is None
+        assert kwargs["status"] == UserStatus.INVITED
 
-    def test_password_hash_is_valid_bcrypt(self, service, repo):
-        repo.create.return_value = make_user()
+    def test_creates_invite_with_hashed_token(self, service, repo, invite_repo):
+        repo.create.return_value = make_user(id=10)
 
         service.create_user(
             UserCreate(name="Alice", email="alice@test.com"), created_by=make_user(id=1)
         )
 
-        hashed = repo.create.call_args.kwargs["hashed_password"]
-        # bcrypt.checkpw doesn't raise, meaning it's a valid hash format
-        assert bcrypt.checkpw(b"any", hashed.encode()) is False
+        kwargs = invite_repo.create.call_args.kwargs
+        assert kwargs["user_id"] == 10
+        assert kwargs["created_by"] == 1
+        assert len(kwargs["token_hash"]) == 64
+
+    def test_enqueues_invite_link_without_password(
+        self, service, repo, outbox, invite_repo
+    ):
+        repo.create.return_value = make_user(id=10, email="alice@test.com")
+        invite_repo.create.return_value = MagicMock(id=77)
+
+        service.create_user(
+            UserCreate(name="Alice", email="alice@test.com"), created_by=make_user(id=1)
+        )
+
+        outbox.enqueue.assert_called_once()
+        call = outbox.enqueue.call_args
+        template_id, context = call.args
+        assert template_id == "user_invite"
+        assert call.kwargs["to"] == "alice@test.com"
+        assert call.kwargs["related"] == ("user", 10)
+        assert call.kwargs["idempotency_key"] == "invite:77"
+        assert "password" not in context
+        # O link leva o token cujo hash foi gravado no banco.
+        token = context["invite_link"].split("/convite/")[1]
+        token_hash = invite_repo.create.call_args.kwargs["token_hash"]
+        assert OneTimeTokenService.hash(token) == token_hash
 
     def test_always_assigns_role_user(self, service, repo):
         repo.create.return_value = make_user()
@@ -416,27 +449,3 @@ class TestUpdateUser:
 
         audit.log_user_updated.assert_called_once_with(updated, admin)
         audit.log_user_deactivated.assert_not_called()
-
-
-class TestGeneratePassword:
-    def test_default_length_is_12(self):
-        password = UserService._generate_password()
-
-        assert len(password) == 12
-
-    def test_custom_length(self):
-        password = UserService._generate_password(length=20)
-
-        assert len(password) == 20
-
-    def test_contains_only_valid_chars(self):
-        valid = set(string.ascii_letters + string.digits + "!@#$%^&*")
-        password = UserService._generate_password()
-
-        assert all(c in valid for c in password)
-
-    def test_two_calls_produce_different_passwords(self):
-        p1 = UserService._generate_password()
-        p2 = UserService._generate_password()
-
-        assert p1 != p2

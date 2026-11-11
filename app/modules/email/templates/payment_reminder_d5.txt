@@ -1,0 +1,14 @@
+{% extends "base.txt" %}
+{% set prazo = "amanhã" if days_left == 1 else "em " ~ days_left ~ " dias" %}
+{% block content %}
+Olá, {{ client_name }}.
+
+O pagamento abaixo vence {{ prazo }}, {{ due_date|data_extenso }}.
+
+Referente a: {{ description or "Serviços jurídicos / Honorários" }}
+Valor: {{ amount|brl if amount is not none else "Valor a consultar" }}
+Vencimento: {{ due_date|data_br }}
+
+Em caso de dúvida, fale com o escritório pelos contatos abaixo.
+Se você já fez o pagamento, desconsidere este aviso.
+{% endblock %}
