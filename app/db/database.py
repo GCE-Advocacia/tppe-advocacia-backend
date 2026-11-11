@@ -50,6 +50,10 @@ def init_db() -> None:
                 OfficeConfig(
                     id=1,
                     theme_id=theme_id,
+                    system_uses_landing_buttons=first_theme.system_uses_landing_buttons if first_theme else False,
+                    color_buttons_system=first_theme.color_buttons_system if first_theme else "#111827",
+                    color_buttons_system_hover=first_theme.color_buttons_system_hover if first_theme else "#1F2937",
+                    color_buttons_system_text=first_theme.color_buttons_system_text if first_theme else "#FFFFFF",
                     differentials=[],
                     areas_of_practice=[],
                 )
