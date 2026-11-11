@@ -21,6 +21,7 @@ from app.shared.types import Role
 
 TODAY = date(2026, 10, 10)
 TOMORROW = date(2026, 10, 11)
+IN_5_DAYS = date(2026, 10, 15)
 
 
 @pytest.fixture
@@ -54,22 +55,25 @@ def make_payment(
 
 
 class TestListDueForReminder:
-    def test_returns_d_minus_1_for_tomorrow_and_d_zero_for_today(
+    def test_returns_d_minus_5_in_window_and_d_zero_for_today(
         self, db: Session, client_id: int, user_id: int
     ):
+        due_in_5 = make_payment(db, client_id, user_id, IN_5_DAYS)
         due_tomorrow = make_payment(db, client_id, user_id, TOMORROW)
         due_today = make_payment(db, client_id, user_id, TODAY)
 
         result = PaymentReminderRepository(db).list_due_for_reminder(TODAY)
 
-        assert (due_tomorrow, ReminderKind.D_MINUS_1) in result
+        # Janela: quem foi criado em cima da hora ainda recebe o aviso antecipado.
+        assert (due_in_5, ReminderKind.D_MINUS_5) in result
+        assert (due_tomorrow, ReminderKind.D_MINUS_5) in result
         assert (due_today, ReminderKind.D_ZERO) in result
-        assert len(result) == 2
+        assert len(result) == 3
 
     def test_ignores_payments_outside_window(
         self, db: Session, client_id: int, user_id: int
     ):
-        make_payment(db, client_id, user_id, date(2026, 10, 12))
+        make_payment(db, client_id, user_id, date(2026, 10, 16))
         make_payment(db, client_id, user_id, date(2026, 10, 9))
 
         assert PaymentReminderRepository(db).list_due_for_reminder(TODAY) == []
@@ -96,16 +100,25 @@ class TestListDueForReminder:
 
         assert repo.list_due_for_reminder(TODAY) == []
 
-    def test_d_minus_1_sent_does_not_block_d_zero(
+    def test_d_minus_5_sent_does_not_block_d_zero(
         self, db: Session, client_id: int, user_id: int
     ):
         payment = make_payment(db, client_id, user_id, TODAY)
         repo = PaymentReminderRepository(db)
         repo.register(
-            payment.id, ReminderKind.D_MINUS_1, "maria@test.com", ReminderStatus.SENT
+            payment.id, ReminderKind.D_MINUS_5, "maria@test.com", ReminderStatus.SENT
         )
 
         assert repo.list_due_for_reminder(TODAY) == [(payment, ReminderKind.D_ZERO)]
+
+    def test_queued_counts_as_handled(self, db: Session, client_id: int, user_id: int):
+        payment = make_payment(db, client_id, user_id, TOMORROW)
+        repo = PaymentReminderRepository(db)
+        repo.register(
+            payment.id, ReminderKind.D_MINUS_5, "maria@test.com", ReminderStatus.QUEUED
+        )
+
+        assert repo.list_due_for_reminder(TODAY) == []
 
     @pytest.mark.parametrize(
         "reminder_status", [ReminderStatus.FAILED, ReminderStatus.NO_EMAIL]

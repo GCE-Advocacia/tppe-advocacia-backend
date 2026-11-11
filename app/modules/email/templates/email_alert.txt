@@ -1,0 +1,12 @@
+{% extends "base.txt" %}
+{% block content %}
+{{ title }}
+
+{{ detail }}
+
+Registrado em {{ occurred_at|data_hora_br }}.
+{% if system_url %}
+
+Ver histórico de e-mails: {{ system_url }}/sistema/emails
+{% endif %}
+{% endblock %}

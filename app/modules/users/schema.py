@@ -1,8 +1,13 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.shared.types import Role
+from app.modules.email_outbox.model import EmailStatus
+from app.shared.security.password import NewPassword
+from app.shared.types import Role, UserStatus
+
+InviteStatus = Literal["PENDING", "EXPIRED", "USED", "CANCELLED"]
 
 
 class UserCreate(BaseModel):
@@ -18,16 +23,42 @@ class UserUpdate(BaseModel):
     can_view_payments: bool | None = None
 
 
+class InviteSummary(BaseModel):
+    """Último convite do usuário, para a listagem do admin.
+
+    ``sent_at`` é quando o convite foi gerado; ``last_sent_at`` é quando o
+    e-mail saiu de fato (nulo enquanto está na fila) e ``email_status`` é a
+    situação do e-mail do convite mais recente.
+    """
+
+    status: InviteStatus
+    sent_at: datetime
+    expires_at: datetime
+    email_status: EmailStatus | None = None
+    last_sent_at: datetime | None = None
+
+
 class UserRead(BaseModel):
     id: int
     name: str
     email: str
     role: Role
+    status: UserStatus
     is_active: bool
     can_view_payments: bool
     created_by: int | None
     updated_by: int | None
     created_at: datetime
     updated_at: datetime
+    invite: InviteSummary | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InvitePublicRead(BaseModel):
+    name: str
+    email: str
+
+
+class InviteAccept(BaseModel):
+    password: NewPassword

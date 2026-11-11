@@ -433,6 +433,162 @@ class PredefinedThemeCannotBeDeletedError(AppException):
         )
 
 
+class EmailTemplateNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "EMAIL_TEMPLATE_NOT_FOUND",
+            "Email template not found",
+        )
+
+
+class EmailProfileNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "EMAIL_PROFILE_NOT_FOUND",
+            "Perfil de e-mail não encontrado.",
+        )
+
+
+class EmailProfileVersionConflictError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_409_CONFLICT,
+            "EMAIL_PROFILE_VERSION_CONFLICT",
+            "Este perfil foi alterado por outra pessoa. Recarregue a página e "
+            "refaça a alteração.",
+        )
+
+
+class EmailProfileIncompleteError(AppException):
+    def __init__(self, missing: list[str]) -> None:
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "EMAIL_PROFILE_INCOMPLETE",
+            "Preencha os campos obrigatórios: " + ", ".join(missing) + ".",
+        )
+
+
+class EmailProfileTestFailedError(AppException):
+    def __init__(self, step: str, error: str | None, hint: str | None = None) -> None:
+        detail = " ".join(part for part in (error, hint) if part)
+        super().__init__(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "EMAIL_PROFILE_TEST_FAILED",
+            f"{detail} A configuração não foi salva.".strip(),
+        )
+
+
+class EmailEncryptionNotConfiguredError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "EMAIL_ENCRYPTION_NOT_CONFIGURED",
+            "O servidor ainda não está pronto para guardar a senha do e-mail. "
+            "Peça ao suporte para configurar a chave de criptografia "
+            "(EMAIL_ENCRYPTION_KEYS). Enquanto isso, os e-mails seguem pela "
+            "conta do sistema.",
+        )
+
+
+class EmailTestSendFailedError(AppException):
+    def __init__(self, reason: str, hint: str | None = None) -> None:
+        super().__init__(
+            status.HTTP_502_BAD_GATEWAY,
+            "EMAIL_TEST_SEND_FAILED",
+            " ".join(part for part in (f"O e-mail de teste não foi enviado. {reason}", hint) if part),
+        )
+
+
+class InviteNotAcceptedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_403_FORBIDDEN,
+            "INVITE_NOT_ACCEPTED",
+            "Convite ainda não aceito. Use o link enviado por e-mail para "
+            "definir sua senha.",
+        )
+
+
+class InvalidInviteError(AppException):
+    """Token inexistente ou cancelado: mesma resposta, para não revelar qual."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "INVITE_INVALID",
+            "Convite inválido. Peça um novo convite ao administrador.",
+        )
+
+
+class ExpiredInviteError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_410_GONE,
+            "INVITE_EXPIRED",
+            "Este convite expirou. Peça um novo convite ao administrador.",
+        )
+
+
+class InviteAlreadyUsedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_410_GONE,
+            "INVITE_ALREADY_USED",
+            "Este convite já foi usado. Entre com seu e-mail e senha.",
+        )
+
+
+class UserNotInvitedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_400_BAD_REQUEST,
+            "USER_NOT_INVITED",
+            "Este usuário já ativou a conta.",
+        )
+
+
+class InviteNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND,
+            "INVITE_NOT_FOUND",
+            "Este usuário não tem convite pendente.",
+        )
+
+
+class InviteResendLimitError(AppException):
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "INVITE_RESEND_LIMIT",
+            f"Limite de {limit} convites por hora para este usuário. "
+            "Tente de novo mais tarde.",
+        )
+
+
+class EmailLogNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_404_NOT_FOUND, "EMAIL_LOG_NOT_FOUND", "E-mail não encontrado"
+        )
+
+
+class EmailNotCancellableError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_409_CONFLICT,
+            "EMAIL_NOT_CANCELLABLE",
+            "Só e-mails pendentes ou com falha podem ser cancelados",
+        )
+
+
+class EmailNotResendableError(AppException):
+    def __init__(self, message: str) -> None:
+        super().__init__(status.HTTP_409_CONFLICT, "EMAIL_NOT_RESENDABLE", message)
+
+
 class GoogleDriveNotConnectedError(AppException):
     def __init__(self) -> None:
         super().__init__(

@@ -4,6 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.modules.tasks.model import Task
 
+
+@pytest.fixture
+def fake_email(queued_email):
+    # As notificações vão para a fila.
+    return queued_email
+
+
 TASKS_URL = "/api/v1/tasks"
 
 

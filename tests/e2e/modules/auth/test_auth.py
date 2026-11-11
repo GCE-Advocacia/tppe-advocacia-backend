@@ -1,12 +1,19 @@
 import re
 
 import jwt
+import pytest
 
 from app.config.settings import get_settings
 
 LOGIN_URL = "/api/v1/auth/login"
 REQUEST_URL = "/api/v1/auth/password-reset/request"
 CONFIRM_URL = "/api/v1/auth/password-reset/confirm"
+
+
+@pytest.fixture
+def fake_email(queued_email):
+    # A redefinição de senha vai para a fila.
+    return queued_email
 
 
 def _extract_token(html: str) -> str:

@@ -2,6 +2,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.modules.email.branding import StaticBrandingProvider
+from app.modules.email.fake_service import FakeEmailService
+from app.modules.email.renderer import EmailRenderer
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.notifications.model import NotificationPreference
 from app.modules.notifications.schema import EventType
 from app.modules.notifications.service import NotificationService
@@ -33,8 +37,16 @@ def users():
 
 
 @pytest.fixture
-def email():
-    return MagicMock()
+def outbox():
+    return FakeEmailService()
+
+
+@pytest.fixture
+def email(outbox):
+    # Sender de verdade (renderiza o template), espiado pelo MagicMock.
+    return MagicMock(
+        wraps=TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), outbox)
+    )
 
 
 @pytest.fixture
@@ -42,7 +54,7 @@ def service(repo, users, email):
     svc = NotificationService.__new__(NotificationService)
     svc.repository = repo
     svc.users = users
-    svc.email = email
+    svc.email_sender = email
     return svc
 
 
@@ -83,7 +95,9 @@ class TestUpdatePreferences:
 
 
 class TestNotify:
-    def test_sends_email_when_preference_enabled(self, service, repo, users, email):
+    def test_sends_email_when_preference_enabled(
+        self, service, repo, users, email, outbox
+    ):
         users.get_by_id.return_value = make_user(email="dest@test.com")
         repo.get_by_user.return_value = []
 
@@ -99,9 +113,11 @@ class TestNotify:
         )
 
         email.send.assert_called_once()
-        kwargs = email.send.call_args.kwargs
-        assert kwargs["to"] == "dest@test.com"
-        assert "João" in kwargs["html"]
+        assert email.send.call_args.args[0] == "notification.lead_assigned"
+        assert email.send.call_args.kwargs["to"] == "dest@test.com"
+        assert outbox.sent[0]["to"] == "dest@test.com"
+        assert "João" in outbox.sent[0]["html"]
+        assert "João" in outbox.messages[0].text
 
     def test_skips_when_preference_disabled(self, service, repo, users, email):
         users.get_by_id.return_value = make_user()
@@ -154,13 +170,15 @@ class TestNotify:
             },
         )
 
-    def test_swallows_template_render_exception(self, service, repo, users, email):
+    def test_swallows_template_render_exception(
+        self, service, repo, users, email, outbox
+    ):
         users.get_by_id.return_value = make_user()
         repo.get_by_user.return_value = []
 
         service.notify(1, EventType.LEAD_ASSIGNED, {})
 
-        email.send.assert_not_called()
+        assert outbox.sent == []
 
     def test_swallows_user_lookup_failure(self, service, repo, users, email):
         users.get_by_id.side_effect = RuntimeError("db down")

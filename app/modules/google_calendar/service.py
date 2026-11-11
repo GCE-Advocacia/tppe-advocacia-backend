@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config.settings import get_settings
 from app.modules.appointments.model import Appointment, AppointmentType
 from app.modules.appointments.repository import AppointmentRepository
-from app.modules.google_calendar.crypto import TokenCipher
+from app.shared.crypto import TokenCipher
 from app.modules.google_calendar.oauth import GoogleOAuthFlow
 from app.modules.google_calendar.protocol import GoogleCalendarClient
 from app.modules.google_calendar.repository import GoogleCredentialRepository

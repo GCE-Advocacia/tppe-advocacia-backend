@@ -15,7 +15,7 @@ from app.modules.external_api_logs.model import (
     ExternalApiStatus,
 )
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
-from app.modules.google_calendar.crypto import TokenCipher
+from app.shared.crypto import TokenCipher
 from app.modules.google_calendar.service import GoogleOAuthError
 from app.modules.google_drive import service as drive_service_module
 from app.modules.google_drive.client import DriveApiError, DriveAuthRevokedError

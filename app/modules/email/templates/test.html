@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "_macros.html" import heading with context %}
+{% block preheader %}A configuração de e-mail está funcionando.{% endblock %}
+{% block content %}
+{{ heading("Teste de envio") }}
+<p>Se você está lendo esta mensagem, o envio de e-mail do {{ office.name }} está funcionando.</p>
+<p class="small">Enviado em {{ sent_at|data_hora_br }}{% if requested_by %} a pedido de {{ requested_by }}{% endif %}.</p>
+{% endblock %}

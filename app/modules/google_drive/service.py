@@ -18,7 +18,7 @@ from app.modules.external_api_logs.model import (
 )
 from app.modules.external_api_logs.notifier import ExternalApiFailureNotifier
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
-from app.modules.google_calendar.crypto import TokenCipher
+from app.shared.crypto import TokenCipher
 from app.modules.google_calendar.oauth import GoogleOAuthFlow
 from app.modules.google_calendar.service import GoogleOAuthError
 from app.modules.google_drive.client import (

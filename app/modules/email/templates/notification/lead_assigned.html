@@ -1,0 +1,9 @@
+{% extends "notification/_layout.html" %}
+{% from "_macros.html" import button, details, heading with context %}
+{% block preheader %}Lead #{{ lead_id }}: {{ lead_name }}{% endblock %}
+{% block content %}
+{{ heading("Novo lead atribuído a você") }}
+<p>O lead <strong>#{{ lead_id }}</strong> foi atribuído a você.</p>
+{{ details([("Nome", lead_name), ("E-mail", lead_email), ("Telefone", lead_phone or "-")]) }}
+{% if system_url %}{{ button(system_url ~ "/sistema/leads", "Ver leads") }}{% endif %}
+{% endblock %}

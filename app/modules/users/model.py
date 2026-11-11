@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.base_model import Base
-from app.shared.types import Role
+from app.shared.types import Role, UserStatus
 
 
 class User(Base):
@@ -15,8 +15,15 @@ class User(Base):
     email: Mapped[str] = mapped_column(
         String(255), nullable=False, unique=True, index=True
     )
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Nulo enquanto o convite não é aceito (status INVITED).
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.USER)
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus),
+        nullable=False,
+        default=UserStatus.ACTIVE,
+        server_default=UserStatus.ACTIVE.value,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     can_view_payments: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()

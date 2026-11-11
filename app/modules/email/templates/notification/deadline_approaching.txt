@@ -1,0 +1,12 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+O prazo {{ deadline_type }} do processo {{ process_number }} vence em {{ business_days_left }} dia(s) útil(eis).
+
+Data-limite: {{ due_date|data_br }}
+
+Providencie a peça ou medida necessária a tempo.
+{% if system_url %}
+
+Ver processo: {{ system_url }}/sistema/processos
+{% endif %}
+{% endblock %}
