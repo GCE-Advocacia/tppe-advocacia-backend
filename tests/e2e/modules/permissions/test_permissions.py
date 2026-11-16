@@ -318,6 +318,9 @@ PUBLIC_ROUTES = {
     ("GET", "/api/v1/media/{key:path}"),
     ("GET", "/api/v1/integrations/google/callback"),
     ("GET", "/api/v1/integrations/google-drive/callback"),
+    # Convite: quem aceita ainda não tem login; o token de uso único é a guarda.
+    ("GET", "/api/v1/invites/{token}"),
+    ("POST", "/api/v1/invites/{token}/accept"),
 }
 
 # O status do Drive já era visível a todo usuário autenticado em main.

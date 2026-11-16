@@ -207,6 +207,11 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       APP_ENV: test
       APP_NAME: Advocacia API
@@ -222,6 +227,8 @@ jobs:
       JWT_SECRET_KEY: test-secret-key-for-ci-minimum-32-bytes!!
       JWT_EXPIRE_MINUTES: "60"
       RESEND_API_KEY: test-resend-api-key-for-ci-placeholder
+      # Chave Fernet só de teste, para os fluxos de e-mail contra o Mailpit.
+      EMAIL_ENCRYPTION_KEYS: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
     steps:
       - uses: actions/checkout@v4
 
