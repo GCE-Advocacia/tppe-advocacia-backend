@@ -12,6 +12,7 @@ from app.db.database import get_db
 from app.main import app_exception_handler, validation_exception_handler
 from app.modules.office_config.model import OfficeConfig
 from app.modules.office_config.router import router
+from app.modules.permissions.model import Permission, UserPermission
 from app.modules.users.model import User
 from app.shared.exceptions import AppException
 from app.shared.types import Role
@@ -33,6 +34,8 @@ def radius_api():
     )
     OfficeConfig.__table__.create(engine)
     User.__table__.create(engine)
+    Permission.__table__.create(engine)
+    UserPermission.__table__.create(engine)
     with Session(engine) as db:
         db.add(OfficeConfig(id=1, color="#123456", logo_url="logo.png"))
         for user_id, role, active in [

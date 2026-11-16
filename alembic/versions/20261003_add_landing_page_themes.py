@@ -6,6 +6,7 @@ Create Date: 2026-10-03
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "e4f5a6b7c8d9"
@@ -77,7 +78,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=100), nullable=False),
         sa.Column("description", sa.String(length=255), nullable=True),
-        sa.Column("is_predefined", sa.Boolean(), server_default=sa.false(), nullable=False),
+        sa.Column(
+            "is_predefined", sa.Boolean(), server_default=sa.false(), nullable=False
+        ),
         sa.Column("color", sa.String(length=50), nullable=False),
         sa.Column("color_bg_primary", sa.String(length=50), nullable=False),
         sa.Column("color_bg_secondary", sa.String(length=50), nullable=False),
@@ -91,11 +94,23 @@ def upgrade() -> None:
         sa.Column("color_text_secondary", sa.String(length=50), nullable=False),
         sa.Column("color_link_primary", sa.String(length=50), nullable=False),
         sa.Column("color_link_secondary", sa.String(length=50), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_landing_page_themes_id"), "landing_page_themes", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_landing_page_themes_id"), "landing_page_themes", ["id"], unique=False
+    )
 
     op.bulk_insert(themes_table, DEFAULT_THEMES)
 

@@ -13,6 +13,7 @@ from app.modules.external_api_logs.model import (
 from app.modules.google_calendar.oauth import GoogleOAuthFlow
 from app.modules.google_drive.client import DriveApiError, DriveAuthRevokedError
 from app.modules.google_drive.service import ROOT_FOLDER_NAME
+from app.modules.permissions.model import Permission, UserPermission
 from app.modules.processes.repository import ProcessRepository
 from app.modules.processes.schema import format_cnj
 
@@ -77,6 +78,12 @@ def test_upload_without_connection_returns_409_not_connected(drive_api, process_
 
 
 def test_upload_list_download_delete_roundtrip(drive_api, process_id, connected):
+    with drive_api.session() as session:
+        permission = Permission(key="processos", name="Processos", sort_order=1)
+        session.add(permission)
+        session.flush()
+        session.add(UserPermission(user_id=2, permission_id=permission.id))
+        session.commit()
     fake = drive_api.fake
     response = upload(drive_api, process_id)
     assert response.status_code == 201

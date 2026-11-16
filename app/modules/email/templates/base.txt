@@ -1,0 +1,20 @@
+{% block content %}{% endblock %}
+
+--
+{{ office.name }}
+{% if office.address %}
+{{ office.address }}
+{% endif %}
+{% if office.phone %}
+Telefone: {{ office.phone }}
+{% endif %}
+{% if office.email %}
+E-mail: {{ office.email }}
+{% endif %}
+{% if office.whatsapp_url %}
+WhatsApp: {{ office.whatsapp_url }}
+{% endif %}
+{% if office.website_url %}
+{{ office.website_url }}
+{% endif %}
+{% block footer_note %}{% endblock %}

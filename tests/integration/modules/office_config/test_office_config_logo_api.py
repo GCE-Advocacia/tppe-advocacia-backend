@@ -474,6 +474,7 @@ def test_invalid_slot_cannot_write_arbitrary_fields(logo_api, method):
 @pytest.mark.parametrize(
     "content,status",
     [(b"<svg/>", 422), (b"", 415), (b"x" * (5 * 1024 * 1024 + 1), 413)],
+    ids=["svg", "empty", "over-five-mib"],
 )
 def test_every_variant_validates_content_and_keeps_previous_on_failure(
     logo_api, slot, method, content, status

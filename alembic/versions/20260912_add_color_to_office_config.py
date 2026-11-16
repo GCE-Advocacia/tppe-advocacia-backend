@@ -1,4 +1,4 @@
-﻿"""add color to office_config
+"""add color to office_config
 
 Revision ID: f7a8b9c0d1e2
 Revises: e5f6a7b8c9d0
@@ -16,9 +16,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "office_config", sa.Column("color", sa.String(50), nullable=True)
-    )
+    op.add_column("office_config", sa.Column("color", sa.String(50), nullable=True))
 
 
 def downgrade() -> None:
