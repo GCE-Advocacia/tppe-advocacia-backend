@@ -1,0 +1,16 @@
+{% extends "notification/_layout.txt" %}
+{% block content %}
+Uma chamada a uma API externa falhou.
+
+Provedor: {{ provider }}
+Operação: {{ operation }}
+Status HTTP: {{ http_status or "-" }}
+Código: {{ error_code or "-" }}
+Processo/identificador: {{ request_identifier or "-" }}
+Tribunal: {{ tribunal_alias or "-" }}
+Erro: {{ error_message or "Sem mensagem de erro" }}
+{% if system_url %}
+
+Ver logs de API: {{ system_url }}/sistema/logs-api
+{% endif %}
+{% endblock %}

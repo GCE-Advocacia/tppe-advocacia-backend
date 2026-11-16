@@ -79,8 +79,12 @@ class OfficeConfig(Base):
     color_buttons_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_buttons_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_buttons_system: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    color_buttons_system_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    color_buttons_system_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system_hover: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    color_buttons_system_text: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
     color_title_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_text_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -114,8 +118,12 @@ class LandingPageTheme(Base):
         Boolean, default=True, server_default=true(), nullable=False
     )
     color_buttons_system: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    color_buttons_system_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    color_buttons_system_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system_hover: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    color_buttons_system_text: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
     color_title_primary: Mapped[str] = mapped_column(String(50), nullable=False)
     color_title_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
     color_text_primary: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -123,7 +131,9 @@ class LandingPageTheme(Base):
     color_link_primary: Mapped[str] = mapped_column(String(50), nullable=False)
     color_link_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

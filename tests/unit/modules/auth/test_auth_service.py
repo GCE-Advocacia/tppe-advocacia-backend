@@ -11,7 +11,10 @@ from app.modules.auth.schema import (
     PasswordResetRequest,
 )
 from app.modules.auth.service import AuthService
+from app.modules.email.branding import StaticBrandingProvider
 from app.modules.email.fake_service import FakeEmailService
+from app.modules.email.renderer import EmailRenderer
+from app.modules.email.sender import TemplatedEmailSender
 from app.modules.permissions.model import Permission
 from app.modules.users.model import User
 from app.shared.exceptions import (
@@ -19,8 +22,9 @@ from app.shared.exceptions import (
     InactiveUserError,
     InvalidCredentialsError,
     InvalidResetTokenError,
+    InviteNotAcceptedError,
 )
-from app.shared.types import Role
+from app.shared.types import Role, UserStatus
 
 
 def make_user(**kwargs) -> User:
@@ -32,6 +36,7 @@ def make_user(**kwargs) -> User:
             b"correct_password", bcrypt.gensalt()
         ).decode(),
         "role": Role.USER,
+        "status": UserStatus.ACTIVE,
         "is_active": True,
         "permissions": [],
         "reset_token_hash": None,
@@ -56,7 +61,9 @@ def fake_email():
 
 @pytest.fixture
 def service(repo, fake_email):
-    return AuthService(repo, fake_email)
+    return AuthService(
+        repo, TemplatedEmailSender(EmailRenderer(StaticBrandingProvider()), fake_email)
+    )
 
 
 def make_login_payload(password="correct_password"):
@@ -88,6 +95,14 @@ class TestLogin:
         result = service.login(make_login_payload("correct_password"))
 
         assert result.access_token is not None
+
+    def test_invited_user_gets_clear_error(self, service, repo):
+        repo.get_by_email.return_value = make_user(
+            status=UserStatus.INVITED, hashed_password=None
+        )
+
+        with pytest.raises(InviteNotAcceptedError):
+            service.login(make_login_payload())
 
     def test_raises_when_user_inactive(self, service, repo):
         repo.get_by_email.return_value = make_user(is_active=False)

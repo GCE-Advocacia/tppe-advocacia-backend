@@ -24,7 +24,6 @@ from app.shared.exceptions import (
 MAX_TOTAL_THEMES = 9
 MAX_CUSTOM_THEMES = 6
 
-
 LOGO_FIELDS: dict[LogoSlot, str] = {
     "landing-light": "logo_url",
     "landing-dark": "logo_dark_url",

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.modules.permissions.model import Permission
 from app.shared.db.base_model import Base
-from app.shared.types import Role
+from app.shared.types import Role, UserStatus
 
 
 class User(Base):
@@ -16,8 +16,15 @@ class User(Base):
     email: Mapped[str] = mapped_column(
         String(255), nullable=False, unique=True, index=True
     )
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Nulo enquanto o convite não é aceito (status INVITED).
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.USER)
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus),
+        nullable=False,
+        default=UserStatus.ACTIVE,
+        server_default=UserStatus.ACTIVE.value,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", use_alter=True, name="fk_users_created_by"),

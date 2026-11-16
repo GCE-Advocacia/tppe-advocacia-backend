@@ -1,0 +1,17 @@
+{% extends "notification/_layout.html" %}
+{% from "_macros.html" import button, details, heading with context %}
+{% block preheader %}{{ provider }}: {{ operation }}{% endblock %}
+{% block content %}
+{{ heading("Falha em integração externa") }}
+<p>Uma chamada a uma API externa falhou.</p>
+{{ details([
+  ("Provedor", provider),
+  ("Operação", operation),
+  ("Status HTTP", http_status or "-"),
+  ("Código", error_code or "-"),
+  ("Processo/identificador", request_identifier or "-"),
+  ("Tribunal", tribunal_alias or "-"),
+  ("Erro", error_message or "Sem mensagem de erro"),
+]) }}
+{% if system_url %}{{ button(system_url ~ "/sistema/logs-api", "Ver logs de API") }}{% endif %}
+{% endblock %}
