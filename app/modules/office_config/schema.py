@@ -9,6 +9,12 @@ class ListItem(BaseModel):
     description: str = Field(max_length=1000)
 
 
+_HexColor = Annotated[
+    str,
+    Field(pattern=r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", strict=True),
+]
+
+
 _ListField = Annotated[list[ListItem], Field(max_length=50)]
 _ButtonRadius = Annotated[
     str, Field(max_length=20, pattern=r"^(?:[0-9]|1[0-9]|2[0-4]|999)px$", strict=True)
@@ -56,9 +62,9 @@ class OfficeConfigUpdate(BaseModel):
     color_buttons_hover: str | None = Field(None, max_length=50)
     color_buttons_text: str | None = Field(None, max_length=50)
     system_uses_landing_buttons: bool | None = None
-    color_buttons_system: str | None = Field(None, max_length=50)
-    color_buttons_system_hover: str | None = Field(None, max_length=50)
-    color_buttons_system_text: str | None = Field(None, max_length=50)
+    color_buttons_system: _HexColor | None = None
+    color_buttons_system_hover: _HexColor | None = None
+    color_buttons_system_text: _HexColor | None = None
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
@@ -152,9 +158,9 @@ class ThemeCreate(BaseModel):
     color_buttons_hover: str = Field(max_length=50)
     color_buttons_text: str = Field(max_length=50)
     system_uses_landing_buttons: bool = True
-    color_buttons_system: str | None = Field(None, max_length=50)
-    color_buttons_system_hover: str | None = Field(None, max_length=50)
-    color_buttons_system_text: str | None = Field(None, max_length=50)
+    color_buttons_system: _HexColor | None = None
+    color_buttons_system_hover: _HexColor | None = None
+    color_buttons_system_text: _HexColor | None = None
     color_title_primary: str = Field(max_length=50)
     color_title_secondary: str = Field(max_length=50)
     color_text_primary: str = Field(max_length=50)
@@ -174,15 +180,21 @@ class ThemeUpdate(BaseModel):
     color_buttons_hover: str | None = Field(None, max_length=50)
     color_buttons_text: str | None = Field(None, max_length=50)
     system_uses_landing_buttons: bool | None = None
-    color_buttons_system: str | None = Field(None, max_length=50)
-    color_buttons_system_hover: str | None = Field(None, max_length=50)
-    color_buttons_system_text: str | None = Field(None, max_length=50)
+    color_buttons_system: _HexColor | None = None
+    color_buttons_system_hover: _HexColor | None = None
+    color_buttons_system_text: _HexColor | None = None
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
     color_text_secondary: str | None = Field(None, max_length=50)
     color_link_primary: str | None = Field(None, max_length=50)
     color_link_secondary: str | None = Field(None, max_length=50)
+
+
+class ThemeDuplicate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=255)
 
 
 class ThemeRead(BaseModel):

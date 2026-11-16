@@ -248,9 +248,7 @@ class TestPatchOfficeConfig:
         data = client.get(OFFICE_CONFIG_URL).json()["data"]
         assert data["color"] == "#FF5733"
 
-    def test_color_rejects_value_exceeding_max_length(
-        self, client, admin_headers
-    ):
+    def test_color_rejects_value_exceeding_max_length(self, client, admin_headers):
         response = client.patch(
             OFFICE_CONFIG_URL,
             json={"color": "x" * 51},
@@ -287,3 +285,52 @@ class TestPatchOfficeConfig:
         get_res = client.get(OFFICE_CONFIG_URL).json()["data"]
         for key, val in payload.items():
             assert get_res[key] == val
+
+
+class TestSystemButtonColorsAudit:
+    """TC-S1-04: OfficeConfig uses PATCH (the existing partial-update contract)."""
+
+    @pytest.mark.parametrize("uses_landing", [True, False])
+    @pytest.mark.parametrize("color", ["#AbC", "#123456", "#12345680"])
+    def test_roundtrip_all_system_button_fields(
+        self, client, admin_headers, uses_landing, color
+    ):
+        payload = {
+            key: color
+            for key in [
+                "color_buttons_system",
+                "color_buttons_system_hover",
+                "color_buttons_system_text",
+            ]
+        }
+        payload["system_uses_landing_buttons"] = uses_landing
+        response = client.patch(OFFICE_CONFIG_URL, headers=admin_headers, json=payload)
+        assert response.status_code == 200
+        saved = client.get(OFFICE_CONFIG_URL).json()["data"]
+        for key, value in payload.items():
+            assert saved[key] == value
+        client.patch(
+            OFFICE_CONFIG_URL, headers=admin_headers, json={"phone": "11999990000"}
+        )
+        saved = client.get(OFFICE_CONFIG_URL).json()["data"]
+        for key, value in payload.items():
+            assert saved[key] == value
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "color_buttons_system",
+            "color_buttons_system_hover",
+            "color_buttons_system_text",
+        ],
+    )
+    @pytest.mark.parametrize("color", ["rgb(0,0,0)", "#12345", "#GGGGGG"])
+    def test_invalid_color_does_not_change_config(
+        self, client, admin_headers, key, color
+    ):
+        before = client.get(OFFICE_CONFIG_URL).json()["data"]
+        response = client.patch(
+            OFFICE_CONFIG_URL, headers=admin_headers, json={key: color}
+        )
+        assert response.status_code == 422
+        assert client.get(OFFICE_CONFIG_URL).json()["data"] == before

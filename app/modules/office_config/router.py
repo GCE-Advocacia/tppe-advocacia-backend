@@ -10,6 +10,7 @@ from app.modules.office_config.schema import (
     OfficeConfigRead,
     OfficeConfigUpdate,
     ThemeCreate,
+    ThemeDuplicate,
     ThemeQuotaRead,
     ThemeRead,
     ThemeUpdate,
@@ -212,3 +213,19 @@ def set_office_logo_default(
     _: User = Depends(require_admin),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(OfficeConfigRead.model_validate(service.set_logo_default(slot)))
+
+
+@router.post(
+    "/themes/{theme_id}/duplicate",
+    status_code=201,
+    response_model=SuccessResponse[ThemeRead],
+    responses=error_responses(400, 401, 403, 404, 422),
+    summary="Duplica um tema respeitando a cota de personalizados (admin only)",
+)
+def duplicate_theme(
+    theme_id: int,
+    payload: ThemeDuplicate | None = None,
+    service: ThemeService = Depends(get_theme_service),
+    _: User = Depends(require_admin),
+) -> SuccessResponse[ThemeRead]:
+    return ok(ThemeRead.model_validate(service.duplicate(theme_id, payload)))
