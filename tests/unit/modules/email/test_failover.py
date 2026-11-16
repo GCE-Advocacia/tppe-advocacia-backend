@@ -20,9 +20,14 @@ class StubProvider:
         return SendResult(provider=self.name, message_id="<id>", duration_ms=1)
 
 
-def _err(provider: str, *, transient: bool, failover: bool, code=None) -> EmailSendError:
+def _err(
+    provider: str, *, transient: bool, failover: bool, code=None
+) -> EmailSendError:
     return EmailSendError(
-        "falha", transient=transient, failover=failover, provider=provider,
+        "falha",
+        transient=transient,
+        failover=failover,
+        provider=provider,
         smtp_code=code,
     )
 
@@ -43,7 +48,9 @@ def test_timeout_on_primary_goes_to_backup():
 
 
 def test_auth_error_on_primary_goes_to_backup():
-    primary = StubProvider("smtp", _err("smtp", transient=False, failover=True, code=535))
+    primary = StubProvider(
+        "smtp", _err("smtp", transient=False, failover=True, code=535)
+    )
     backup = StubProvider("resend")
     assert FailoverEmailService([primary, backup]).deliver(MESSAGE).provider == "resend"
 

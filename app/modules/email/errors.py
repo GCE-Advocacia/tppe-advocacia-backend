@@ -73,7 +73,10 @@ def classify_smtp_response(code: int, message: str, provider: str) -> EmailSendE
     else:
         provider_side = code in (530, 534, 535)
     return EmailSendError(
-        reason, transient=False, failover=provider_side, provider=provider,
+        reason,
+        transient=False,
+        failover=provider_side,
+        provider=provider,
         smtp_code=code,
     )
 

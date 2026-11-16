@@ -74,7 +74,9 @@ class FailoverEmailService:
                 try:
                     stack.enter_context(provider)
                 except EmailSendError as err:
-                    logger.warning("Could not open %s for batch: %s", provider.name, err)
+                    logger.warning(
+                        "Could not open %s for batch: %s", provider.name, err
+                    )
         self._batch = stack
         return self
 

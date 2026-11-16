@@ -19,7 +19,6 @@ def fake_email(queued_email):
     return queued_email
 
 
-
 def _hash(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 

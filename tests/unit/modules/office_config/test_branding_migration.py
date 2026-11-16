@@ -166,7 +166,9 @@ def test_system_button_colors_and_theme_presets_migration():
 
         rows = {
             r["id"]: r
-            for r in connection.execute(text("SELECT * FROM landing_page_themes")).mappings().all()
+            for r in connection.execute(text("SELECT * FROM landing_page_themes"))
+            .mappings()
+            .all()
         }
         # Clássico Navy & Wine -> Black system buttons pre-set
         assert rows[1]["system_uses_landing_buttons"] == 0
@@ -179,15 +181,22 @@ def test_system_button_colors_and_theme_presets_migration():
         assert rows[2]["color_buttons_system"] == "#C5A059"
 
         # OfficeConfig updated to match default theme pre-set
-        config_row = connection.execute(text("SELECT * FROM office_config")).mappings().one()
+        config_row = (
+            connection.execute(text("SELECT * FROM office_config")).mappings().one()
+        )
         assert config_row["system_uses_landing_buttons"] == 0
         assert config_row["color_buttons_system"] == "#111827"
         assert config_row["color_buttons_system_hover"] == "#1F2937"
         assert config_row["color_buttons_system_text"] == "#FFFFFF"
 
         migration.downgrade()
-        theme_cols = {col["name"] for col in inspect(connection).get_columns("landing_page_themes")}
-        config_cols = {col["name"] for col in inspect(connection).get_columns("office_config")}
+        theme_cols = {
+            col["name"]
+            for col in inspect(connection).get_columns("landing_page_themes")
+        }
+        config_cols = {
+            col["name"] for col in inspect(connection).get_columns("office_config")
+        }
         assert "system_uses_landing_buttons" not in theme_cols
         assert "color_buttons_system" not in theme_cols
         assert "system_uses_landing_buttons" not in config_cols

@@ -44,14 +44,14 @@ class EmailRenderer:
         self.branding = branding
         self.system_url = system_url.rstrip("/")
         self.templates = templates
-        self._env = self._make_env(autoescape=select_autoescape(["html"]))
-        self._text_env = self._make_env(autoescape=False)
+        self._env = self._make_env(escape_strings=True)
+        self._text_env = self._make_env(escape_strings=False)
 
     @staticmethod
-    def _make_env(autoescape) -> Environment:
+    def _make_env(escape_strings: bool) -> Environment:
         env = Environment(
             loader=FileSystemLoader(TEMPLATES_DIR),
-            autoescape=autoescape,
+            autoescape=select_autoescape(["html"], default_for_string=escape_strings),
             undefined=StrictUndefined,
             trim_blocks=True,
             lstrip_blocks=True,

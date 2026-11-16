@@ -6,6 +6,7 @@ Create Date: 2026-10-03
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "f1a2b3c4d5e6"
@@ -34,7 +35,9 @@ def upgrade() -> None:
     ).scalar()
     if theme_id:
         bind.execute(
-            sa.text("UPDATE office_config SET theme_id = :theme_id WHERE theme_id IS NULL"),
+            sa.text(
+                "UPDATE office_config SET theme_id = :theme_id WHERE theme_id IS NULL"
+            ),
             {"theme_id": theme_id},
         )
 

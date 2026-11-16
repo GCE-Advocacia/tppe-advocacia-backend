@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-
 
 from sqlalchemy import and_, delete, exists, select
 from sqlalchemy.orm import Session, joinedload
@@ -14,7 +14,6 @@ from app.modules.payments.model import (
     ReminderKind,
     ReminderStatus,
 )
-
 
 # Antecedência do primeiro lembrete (pedido do cliente: 5 dias antes).
 ADVANCE_REMINDER_DAYS = 5
@@ -105,9 +104,7 @@ class PaymentReminderRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def list_due_for_reminder(
-        self, today: date
-    ) -> list[tuple[Payment, ReminderKind]]:
+    def list_due_for_reminder(self, today: date) -> list[tuple[Payment, ReminderKind]]:
         """Pagamentos pendentes que precisam de lembrete hoje.
 
         D-5 usa uma janela (vence de amanhã até daqui a 5 dias) em vez de uma
@@ -193,9 +190,7 @@ class PaymentReminderRepository:
         stmt = (
             select(PaymentReminder)
             .join(Payment, PaymentReminder.payment_id == Payment.id)
-            .options(
-                joinedload(PaymentReminder.payment).joinedload(Payment.client)
-            )
+            .options(joinedload(PaymentReminder.payment).joinedload(Payment.client))
             .order_by(PaymentReminder.sent_at.desc(), PaymentReminder.id.desc())
         )
 
@@ -221,9 +216,7 @@ class PaymentReminderRepository:
     def list_by_payment(self, payment_id: int) -> list[PaymentReminder]:
         stmt = (
             select(PaymentReminder)
-            .options(
-                joinedload(PaymentReminder.payment).joinedload(Payment.client)
-            )
+            .options(joinedload(PaymentReminder.payment).joinedload(Payment.client))
             .where(PaymentReminder.payment_id == payment_id)
             .order_by(PaymentReminder.sent_at.asc(), PaymentReminder.id.asc())
         )

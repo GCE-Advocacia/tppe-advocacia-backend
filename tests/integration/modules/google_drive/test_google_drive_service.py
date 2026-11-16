@@ -15,7 +15,6 @@ from app.modules.external_api_logs.model import (
     ExternalApiStatus,
 )
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
-from app.shared.crypto import TokenCipher
 from app.modules.google_calendar.service import GoogleOAuthError
 from app.modules.google_drive import service as drive_service_module
 from app.modules.google_drive.client import DriveApiError, DriveAuthRevokedError
@@ -28,6 +27,7 @@ from app.modules.google_drive.service import ROOT_FOLDER_NAME, GoogleDriveServic
 from app.modules.processes.repository import ProcessRepository
 from app.modules.processes.schema import format_cnj
 from app.modules.users.repository import UserRepository
+from app.shared.crypto import TokenCipher
 from app.shared.exceptions import (
     GoogleDriveNotConfiguredError,
     GoogleDriveNotConnectedError,

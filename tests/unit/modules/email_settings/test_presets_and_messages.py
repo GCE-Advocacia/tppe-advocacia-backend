@@ -55,23 +55,34 @@ def test_every_preset_has_password_help():
 
 class TestSenderWarnings:
     def test_gmail_must_send_as_the_account(self):
-        warnings = sender_warnings("contato@escritorio.com.br", "fulano@gmail.com", "gmail")
+        warnings = sender_warnings(
+            "contato@escritorio.com.br", "fulano@gmail.com", "gmail"
+        )
 
         assert warnings and "fulano@gmail.com" in warnings[0]
 
     def test_other_domain_is_warned(self):
-        warnings = sender_warnings("contato@outro.com", "conta@escritorio.com.br", "hostinger")
+        warnings = sender_warnings(
+            "contato@outro.com", "conta@escritorio.com.br", "hostinger"
+        )
 
         assert warnings and "@escritorio.com.br" in warnings[0]
 
     def test_same_domain_is_fine(self):
-        assert sender_warnings("contato@escritorio.com.br", "ti@escritorio.com.br", "other") == []
+        assert (
+            sender_warnings(
+                "contato@escritorio.com.br", "ti@escritorio.com.br", "other"
+            )
+            == []
+        )
 
 
 class TestPlainLanguage:
     def test_535_on_gmail_suggests_app_password(self):
         explained = explain_exception(
-            smtplib.SMTPAuthenticationError(535, b"5.7.8 Username and Password not accepted"),
+            smtplib.SMTPAuthenticationError(
+                535, b"5.7.8 Username and Password not accepted"
+            ),
             PRESETS["gmail"],
         )
 
@@ -93,12 +104,17 @@ class TestPlainLanguage:
         assert "remetente" in explained.message
 
     def test_unknown_host(self):
-        assert "não foi encontrado" in explain_exception(socket.gaierror(), None).message
+        assert (
+            "não foi encontrado" in explain_exception(socket.gaierror(), None).message
+        )
 
     def test_classified_send_error_535(self):
         err = EmailSendError(
-            "Autenticação recusada: 535 5.7.8 bad", transient=False, failover=True,
-            provider="own", smtp_code=535,
+            "Autenticação recusada: 535 5.7.8 bad",
+            transient=False,
+            failover=True,
+            provider="own",
+            smtp_code=535,
         )
 
         assert explain_send_error(err, PRESETS["outlook"]).message == (
@@ -107,7 +123,9 @@ class TestPlainLanguage:
 
     def test_classified_timeout(self):
         err = EmailSendError(
-            "Conexão com o servidor falhou: timed out", transient=True, failover=True,
+            "Conexão com o servidor falhou: timed out",
+            transient=True,
+            failover=True,
             provider="own",
         )
 

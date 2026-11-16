@@ -27,6 +27,7 @@ from app.modules.forensic_holidays.repository import ForensicHolidayRepository
 from app.modules.google_calendar.service import build_google_calendar_service
 from app.modules.notifications.repository import NotificationPreferenceRepository
 from app.modules.notifications.service import NotificationService
+from app.modules.payments.service import PaymentReminderService
 from app.modules.processes.repository import ProcessRepository
 from app.modules.users.repository import UserRepository
 from app.shared.deps.email import (
@@ -35,7 +36,6 @@ from app.shared.deps.email import (
     get_email_service,
 )
 from app.shared.deps.google import get_google_calendar_client
-from app.modules.payments.service import PaymentReminderService
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +137,7 @@ def dispatch_datajud_sync_job() -> None:
         )
     except Exception:
         logger.exception("DataJud sync job failed")
+
 
 def dispatch_payment_reminders_job() -> None:
     """Job diário: põe na fila os lembretes de cobrança D-5 e D-0."""

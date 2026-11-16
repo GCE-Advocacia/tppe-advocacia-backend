@@ -18,7 +18,6 @@ from app.modules.external_api_logs.model import (
 )
 from app.modules.external_api_logs.notifier import ExternalApiFailureNotifier
 from app.modules.external_api_logs.repository import ExternalApiLogRepository
-from app.shared.crypto import TokenCipher
 from app.modules.google_calendar.oauth import GoogleOAuthFlow
 from app.modules.google_calendar.service import GoogleOAuthError
 from app.modules.google_drive.client import (
@@ -37,6 +36,7 @@ from app.modules.google_drive.schema import GoogleDriveStatusRead
 from app.modules.notifications.service import NotificationService
 from app.modules.processes.schema import format_cnj
 from app.modules.users.repository import UserRepository
+from app.shared.crypto import TokenCipher
 from app.shared.db.uow import unit_of_work
 from app.shared.exceptions import (
     GoogleDriveNotConfiguredError,

@@ -40,10 +40,26 @@ def test_maps_message_to_params(send):
 @pytest.mark.parametrize(
     "error, transient, failover",
     [
-        (resend.exceptions.RateLimitError("limit", "rate_limit_exceeded", 429), True, True),
-        (resend.exceptions.ApplicationError("boom", "application_error", 500), True, True),
-        (resend.exceptions.InvalidApiKeyError("key", "invalid_api_key", 403), False, True),
-        (resend.exceptions.ValidationError("bad", "validation_error", 422), False, False),
+        (
+            resend.exceptions.RateLimitError("limit", "rate_limit_exceeded", 429),
+            True,
+            True,
+        ),
+        (
+            resend.exceptions.ApplicationError("boom", "application_error", 500),
+            True,
+            True,
+        ),
+        (
+            resend.exceptions.InvalidApiKeyError("key", "invalid_api_key", 403),
+            False,
+            True,
+        ),
+        (
+            resend.exceptions.ValidationError("bad", "validation_error", 422),
+            False,
+            False,
+        ),
     ],
 )
 @patch("app.modules.email.resend_provider.resend.Emails.send")

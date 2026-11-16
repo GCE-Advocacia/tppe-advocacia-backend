@@ -99,7 +99,9 @@ def test_user_input_cannot_break_subject_header(renderer):
         **TEMPLATES[notification_template_id(EventType.TASK_ASSIGNED)].sample_context,
         "task_title": "Revisar\r\nBcc: vitima@exemplo.com",
     }
-    rendered = renderer.render(notification_template_id(EventType.TASK_ASSIGNED), context)
+    rendered = renderer.render(
+        notification_template_id(EventType.TASK_ASSIGNED), context
+    )
     assert "\n" not in rendered.subject and "\r" not in rendered.subject
 
 

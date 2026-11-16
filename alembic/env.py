@@ -11,6 +11,7 @@ from app.modules.articles.model import Article  # noqa: F401
 from app.modules.audit_logs.model import AuditLog  # noqa: F401
 from app.modules.clients.model import Client, ClientNote  # noqa: F401
 from app.modules.deadlines.model import Deadline, DeadlineAlert  # noqa: F401
+from app.modules.documents.model import ProcessDocument  # noqa: F401
 from app.modules.email_outbox.model import (  # noqa: F401
     EmailAlertLog,
     EmailAttempt,
@@ -18,7 +19,6 @@ from app.modules.email_outbox.model import (  # noqa: F401
     EmailProviderHealth,
 )
 from app.modules.email_settings.model import EmailIdentity, EmailProfile  # noqa: F401
-from app.modules.documents.model import ProcessDocument  # noqa: F401
 from app.modules.external_api_logs.model import ExternalApiLog  # noqa: F401
 from app.modules.finance.model import FinancialTransaction  # noqa: F401
 from app.modules.forensic_holidays.model import ForensicHoliday  # noqa: F401

@@ -50,9 +50,7 @@ class PaymentService:
         payload: PaymentCreate,
         current_user: User,
     ):
-        client = self.client_repository.get_by_id(
-            payload.client_id
-        )
+        client = self.client_repository.get_by_id(payload.client_id)
 
         if client is None:
             raise HTTPException(
@@ -83,9 +81,7 @@ class PaymentService:
         return payments[0]
 
     def get_by_id(self, payment_id: int):
-        payment = self.payment_repository.get_by_id(
-            payment_id
-        )
+        payment = self.payment_repository.get_by_id(payment_id)
 
         if payment is None:
             raise HTTPException(
@@ -116,17 +112,13 @@ class PaymentService:
     ):
         payment = self.get_by_id(payment_id)
 
-        data = payload.model_dump(
-            exclude_unset=True
-        )
+        data = payload.model_dump(exclude_unset=True)
 
         if not data:
             return payment
 
         if "client_id" in data:
-            client = self.client_repository.get_by_id(
-                data["client_id"]
-            )
+            client = self.client_repository.get_by_id(data["client_id"])
 
             if client is None:
                 raise HTTPException(
@@ -136,8 +128,7 @@ class PaymentService:
 
         # Vencimento novo pede lembretes novos.
         due_date_changed = (
-            "payment_date" in data
-            and data["payment_date"] != payment.payment_date
+            "payment_date" in data and data["payment_date"] != payment.payment_date
         )
 
         with unit_of_work(self.payment_repository.db):
@@ -190,11 +181,9 @@ class PaymentService:
         if start_date and end_date and start_date > end_date:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "A data inicial não pode ser maior "
-                    "que a data final."
-                ),
+                detail=("A data inicial não pode ser maior que a data final."),
             )
+
 
 class PaymentReminderService:
     def __init__(self, db: Session, outbox: EmailOutbox | None = None) -> None:

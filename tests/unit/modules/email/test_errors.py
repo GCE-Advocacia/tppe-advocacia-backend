@@ -26,7 +26,11 @@ from app.modules.email.errors import classify_smtp_error, enhanced_status
             True,
         ),
         (smtplib.SMTPDataError(554, b"5.7.0 Message rejected by policy"), False, True),
-        (smtplib.SMTPDataError(550, b"5.1.1 The email account does not exist"), False, False),
+        (
+            smtplib.SMTPDataError(550, b"5.1.1 The email account does not exist"),
+            False,
+            False,
+        ),
         (smtplib.SMTPDataError(553, b"5.1.3 Invalid address"), False, False),
         (smtplib.SMTPDataError(554, b"Transaction failed"), False, False),
         (smtplib.SMTPServerDisconnected("Connection unexpectedly closed"), True, True),
@@ -34,7 +38,11 @@ from app.modules.email.errors import classify_smtp_error, enhanced_status
         (TimeoutError("timed out"), True, True),
         (ConnectionRefusedError(10061, "refused"), True, True),
         (ssl.SSLCertVerificationError("bad cert"), False, True),
-        (smtplib.SMTPNotSupportedError("STARTTLS extension not supported"), False, True),
+        (
+            smtplib.SMTPNotSupportedError("STARTTLS extension not supported"),
+            False,
+            True,
+        ),
     ],
 )
 def test_classification(exc, transient, failover):

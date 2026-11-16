@@ -19,9 +19,7 @@ def user_key(request: Request) -> str:
     scheme, _, token = auth.partition(" ")
     if scheme.lower() == "bearer" and token:
         try:
-            payload = jwt.decode(
-                token, _settings.jwt_secret_key, algorithms=["HS256"]
-            )
+            payload = jwt.decode(token, _settings.jwt_secret_key, algorithms=["HS256"])
             return f"user:{payload['sub']}"
         except (jwt.PyJWTError, KeyError):
             pass

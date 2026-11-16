@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     email_providers: Annotated[list[str], NoDecode] = Field(
         default=[], validation_alias="EMAIL_PROVIDERS"
     )
-    email_max_size_mb: int = Field(10, ge=1, le=50, validation_alias="EMAIL_MAX_SIZE_MB")
+    email_max_size_mb: int = Field(
+        10, ge=1, le=50, validation_alias="EMAIL_MAX_SIZE_MB"
+    )
 
     smtp_host: str = Field("", validation_alias="SMTP_HOST")
     smtp_port: int = Field(587, validation_alias="SMTP_PORT")

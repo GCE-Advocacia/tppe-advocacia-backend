@@ -72,7 +72,11 @@ def test_html_to_text_skips_style_and_breaks_blocks():
 
 
 def test_size_limit():
-    big = _message(attachments=[Attachment("a.bin", "application/octet-stream", b"x" * (2 * 1024 * 1024))])
+    big = _message(
+        attachments=[
+            Attachment("a.bin", "application/octet-stream", b"x" * (2 * 1024 * 1024))
+        ]
+    )
     ensure_size_limit(big, 3, "smtp")
     with pytest.raises(EmailSendError) as exc:
         ensure_size_limit(big, 1, "smtp")

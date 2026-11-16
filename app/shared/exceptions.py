@@ -497,7 +497,11 @@ class EmailTestSendFailedError(AppException):
         super().__init__(
             status.HTTP_502_BAD_GATEWAY,
             "EMAIL_TEST_SEND_FAILED",
-            " ".join(part for part in (f"O e-mail de teste não foi enviado. {reason}", hint) if part),
+            " ".join(
+                part
+                for part in (f"O e-mail de teste não foi enviado. {reason}", hint)
+                if part
+            ),
         )
 
 

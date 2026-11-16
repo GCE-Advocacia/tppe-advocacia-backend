@@ -37,7 +37,9 @@ def default_branding(office_name: str | None = None) -> dict:
     return build_branding(None, office_name)
 
 
-def build_branding(config: OfficeConfig | None, fallback_name: str | None = None) -> dict:
+def build_branding(
+    config: OfficeConfig | None, fallback_name: str | None = None
+) -> dict:
     """Monta o contexto ``office`` + ``colors``. Todas as chaves sempre existem
     (com ``None`` quando vazias), porque o renderer usa ``StrictUndefined``."""
 
@@ -102,11 +104,15 @@ class OfficeBrandingProvider:
                 config = OfficeConfigRepository(db).get_config()
                 # Sem nome no office_config, vale o nome do remetente da tela.
                 identity = db.get(EmailIdentity, 1)
-                fallback = (identity.from_name if identity else None) or self._fallback_name
+                fallback = (
+                    identity.from_name if identity else None
+                ) or self._fallback_name
                 return build_branding(config, fallback)
         except Exception:
             # Sem office_config (ou banco fora): e-mail sai com a marca padrão.
-            logger.warning("Could not load office_config for email branding", exc_info=True)
+            logger.warning(
+                "Could not load office_config for email branding", exc_info=True
+            )
             return default_branding(self._fallback_name)
 
 

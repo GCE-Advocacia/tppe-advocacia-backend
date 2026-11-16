@@ -40,7 +40,10 @@ class Named(FakeEmailService):
 @pytest.fixture
 def admin(db):
     user = UserRepository(db).create(
-        name="Dra. Ana", email="ana@escritorio.com.br", hashed_password="x", role=Role.ADMIN
+        name="Dra. Ana",
+        email="ana@escritorio.com.br",
+        hashed_password="x",
+        role=Role.ADMIN,
     )
     db.commit()
     return user
@@ -50,8 +53,12 @@ def admin(db):
 def profiles(db):
     db.add_all(
         [
-            EmailProfile(name="Primário", priority=1, provider="smtp", security="starttls"),
-            EmailProfile(name="Reserva", priority=2, provider="smtp", security="starttls"),
+            EmailProfile(
+                name="Primário", priority=1, provider="smtp", security="starttls"
+            ),
+            EmailProfile(
+                name="Reserva", priority=2, provider="smtp", security="starttls"
+            ),
         ]
     )
     db.add(EmailIdentity(id=1, version=1))
@@ -106,7 +113,9 @@ class TestIdentity:
         service.update_identity(EmailIdentityUpdate(from_name="A", version=1), admin)
 
         with pytest.raises(EmailProfileVersionConflictError):
-            service.update_identity(EmailIdentityUpdate(from_name="B", version=1), admin)
+            service.update_identity(
+                EmailIdentityUpdate(from_name="B", version=1), admin
+            )
 
 
 class TestProfiles:
@@ -156,9 +165,17 @@ class TestStatus:
     def test_last_sent_comes_from_history(self, db, profiles, audit):
         db.add(
             EmailOutboxItem(
-                id="x1", template_id="test", context={}, to=["a@b.com"], cc=[], bcc=[],
-                status=EmailStatus.SENT, attempts=1, next_attempt_at=NOW,
-                created_at=NOW, sent_at=NOW,
+                id="x1",
+                template_id="test",
+                context={},
+                to=["a@b.com"],
+                cc=[],
+                bcc=[],
+                status=EmailStatus.SENT,
+                attempts=1,
+                next_attempt_at=NOW,
+                created_at=NOW,
+                sent_at=NOW,
             )
         )
         db.commit()
@@ -170,15 +187,26 @@ class TestStatus:
     def test_only_failures_in_last_hour_is_down(self, db, profiles, audit):
         db.add(
             EmailOutboxItem(
-                id="x2", template_id="test", context={}, to=["a@b.com"], cc=[], bcc=[],
-                status=EmailStatus.FAILED, attempts=1, next_attempt_at=NOW,
+                id="x2",
+                template_id="test",
+                context={},
+                to=["a@b.com"],
+                cc=[],
+                bcc=[],
+                status=EmailStatus.FAILED,
+                attempts=1,
+                next_attempt_at=NOW,
                 created_at=NOW,
             )
         )
         db.add(
             EmailAttempt(
-                email_id="x2", attempt=1, provider="system", success=False,
-                error="timeout", created_at=NOW - timedelta(minutes=5),
+                email_id="x2",
+                attempt=1,
+                provider="system",
+                success=False,
+                error="timeout",
+                created_at=NOW - timedelta(minutes=5),
             )
         )
         db.commit()
@@ -218,8 +246,11 @@ class TestSendMe:
         failing = Named(
             "own",
             EmailSendError(
-                "Autenticação recusada: 535 bad", transient=False, failover=False,
-                provider="own", smtp_code=535,
+                "Autenticação recusada: 535 bad",
+                transient=False,
+                failover=False,
+                provider="own",
+                smtp_code=535,
             ),
         )
         service = make_service(db, audit, FailoverEmailService([failing]))

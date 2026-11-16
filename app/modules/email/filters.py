@@ -8,8 +8,18 @@ from decimal import Decimal, InvalidOperation
 BRT = timezone(timedelta(hours=-3), "BRT")
 
 _MESES = (
-    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
 )
 
 
@@ -19,7 +29,11 @@ def _to_datetime(value: object) -> date | datetime | None:
     if isinstance(value, str) and value.strip():
         raw = value.strip().replace("Z", "+00:00")
         try:
-            return datetime.fromisoformat(raw) if "T" in raw or " " in raw else date.fromisoformat(raw)
+            return (
+                datetime.fromisoformat(raw)
+                if "T" in raw or " " in raw
+                else date.fromisoformat(raw)
+            )
         except ValueError:
             return None
     return None

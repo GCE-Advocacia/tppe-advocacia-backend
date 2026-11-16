@@ -37,9 +37,10 @@ def _conn() -> MagicMock:
 
 @pytest.fixture
 def smtp():
-    with patch("app.modules.email.smtp_provider.smtplib.SMTP") as smtp_cls, patch(
-        "app.modules.email.smtp_provider.smtplib.SMTP_SSL"
-    ) as ssl_cls:
+    with (
+        patch("app.modules.email.smtp_provider.smtplib.SMTP") as smtp_cls,
+        patch("app.modules.email.smtp_provider.smtplib.SMTP_SSL") as ssl_cls,
+    ):
         smtp_cls.return_value = _conn()
         ssl_cls.return_value = _conn()
         yield smtp_cls, ssl_cls

@@ -32,7 +32,9 @@ def main() -> int:
 
     configs = configs_from_settings(get_settings())
     if args.provider:
-        configs = [c for c in configs if type(c).__name__.lower().startswith(args.provider)]
+        configs = [
+            c for c in configs if type(c).__name__.lower().startswith(args.provider)
+        ]
     if not configs:
         print("Nenhum provedor configurado. Confira EMAIL_PROVIDERS e SMTP_* no .env.")
         return 1

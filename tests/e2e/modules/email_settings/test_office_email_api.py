@@ -25,15 +25,29 @@ def reset(db_session):
     db_session.rollback()
     db_session.execute(
         update(EmailProfile).values(
-            host=None, port=587, security="starttls", username=None,
-            secret_encrypted=None, from_email=None, preset=None, is_active=False,
-            last_tested_at=None, last_test_ok=None, version=1, updated_by=None,
+            host=None,
+            port=587,
+            security="starttls",
+            username=None,
+            secret_encrypted=None,
+            from_email=None,
+            preset=None,
+            is_active=False,
+            last_tested_at=None,
+            last_test_ok=None,
+            version=1,
+            updated_by=None,
         )
     )
     db_session.execute(
         update(EmailIdentity).values(
-            from_name=None, reply_to=None, last_test_at=None, last_test_ok=None,
-            last_test_error=None, version=1, updated_by=None,
+            from_name=None,
+            reply_to=None,
+            last_test_at=None,
+            last_test_ok=None,
+            last_test_error=None,
+            version=1,
+            updated_by=None,
         )
     )
     db_session.execute(
@@ -74,21 +88,37 @@ def test_overview_without_configuration(client, admin_headers):
 
     assert data["identity"]["from_name"] is None
     assert data["own_account"]["is_active"] is False
-    assert "resend" not in str(data).lower() or data["own_account"]["provider"] == "smtp"
+    assert (
+        "resend" not in str(data).lower() or data["own_account"]["provider"] == "smtp"
+    )
 
 
 def test_presets_hide_resend(client, admin_headers):
     presets = client.get(f"{BASE}/presets", headers=admin_headers).json()["data"]
 
-    assert [p["id"] for p in presets] == ["gmail", "outlook", "hostinger", "locaweb", "other"]
+    assert [p["id"] for p in presets] == [
+        "gmail",
+        "outlook",
+        "hostinger",
+        "locaweb",
+        "other",
+    ]
     gmail = presets[0]
-    assert (gmail["host"], gmail["port"], gmail["security"]) == ("smtp.gmail.com", 587, "starttls")
+    assert (gmail["host"], gmail["port"], gmail["security"]) == (
+        "smtp.gmail.com",
+        587,
+        "starttls",
+    )
 
 
 def test_identity_is_saved(client, admin_headers):
     response = client.put(
         f"{BASE}/identity",
-        json={"from_name": "Souza & Lima", "reply_to": "contato@souzalima.adv.br", "version": 1},
+        json={
+            "from_name": "Souza & Lima",
+            "reply_to": "contato@souzalima.adv.br",
+            "version": 1,
+        },
         headers=admin_headers,
     )
 
@@ -151,7 +181,11 @@ def test_full_wizard_against_mailpit(client, admin_headers, admin_user):
     assert saved.status_code == 200, saved.text
     client.put(
         f"{BASE}/identity",
-        json={"from_name": "Escritório Teste", "reply_to": "atendimento@escritorio-teste.com.br", "version": 1},
+        json={
+            "from_name": "Escritório Teste",
+            "reply_to": "atendimento@escritorio-teste.com.br",
+            "version": 1,
+        },
         headers=admin_headers,
     )
 
@@ -165,10 +199,14 @@ def test_full_wizard_against_mailpit(client, admin_headers, admin_user):
     assert sent.status_code == 200, sent.text
     assert sent.json()["data"]["account"] == "own"
     found = httpx.get(
-        f"{MAILPIT_API}/search", params={"query": f"to:{admin_user['email']}"}, timeout=3
+        f"{MAILPIT_API}/search",
+        params={"query": f"to:{admin_user['email']}"},
+        timeout=3,
     ).json()
     assert found["messages"], "teste não chegou ao Mailpit"
-    message = httpx.get(f"{MAILPIT_API}/message/{found['messages'][0]['ID']}", timeout=3).json()
+    message = httpx.get(
+        f"{MAILPIT_API}/message/{found['messages'][0]['ID']}", timeout=3
+    ).json()
     assert message["From"]["Name"] == "Escritório Teste"
     assert message["From"]["Address"] == "contato@escritorio-teste.com.br"
     assert message["ReplyTo"][0]["Address"] == "atendimento@escritorio-teste.com.br"
