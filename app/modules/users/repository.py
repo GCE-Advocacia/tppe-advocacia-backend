@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.users.model import User
-from app.shared.types import Role
+from app.shared.types import Role, UserStatus
 
 
 class UserRepository:
@@ -53,15 +53,17 @@ class UserRepository:
         self,
         name: str,
         email: str,
-        hashed_password: str,
+        hashed_password: str | None,
         role: Role,
         created_by: int | None = None,
+        status: UserStatus = UserStatus.ACTIVE,
     ) -> User:
         user = User(
             name=name,
             email=email,
             hashed_password=hashed_password,
             role=role,
+            status=status,
             created_by=created_by,
         )
         self.db.add(user)

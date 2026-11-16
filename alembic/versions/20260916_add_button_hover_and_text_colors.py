@@ -6,6 +6,7 @@ Create Date: 2026-09-16
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "d4e5f6a7b8c9"
@@ -15,8 +16,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("office_config", sa.Column("color_buttons_hover", sa.String(50), nullable=True))
-    op.add_column("office_config", sa.Column("color_buttons_text", sa.String(50), nullable=True))
+    op.add_column(
+        "office_config", sa.Column("color_buttons_hover", sa.String(50), nullable=True)
+    )
+    op.add_column(
+        "office_config", sa.Column("color_buttons_text", sa.String(50), nullable=True)
+    )
 
 
 def downgrade() -> None:

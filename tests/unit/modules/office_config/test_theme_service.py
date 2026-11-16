@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+
 import pytest
 
 from app.modules.office_config.model import LandingPageTheme, OfficeConfig
@@ -246,4 +247,3 @@ class TestThemeQuota:
 
         quota = service.get_quota()
         assert quota["is_limit_reached"] is True
-

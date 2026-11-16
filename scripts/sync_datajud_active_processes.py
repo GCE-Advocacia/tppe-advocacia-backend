@@ -16,7 +16,8 @@ from app.modules.datajud.datajud_service import DataJudApiService  # noqa: E402
 from app.modules.datajud.protocol import DataJudClient  # noqa: E402
 from app.modules.datajud.schema import DataJudBatchSyncRequest  # noqa: E402
 from app.modules.datajud.service import DataJudService  # noqa: E402
-from app.modules.email.protocol import EmailService  # noqa: E402
+from app.modules.email.protocol import EmailProvider  # noqa: E402
+from app.modules.email.sender import TemplatedEmailSender  # noqa: E402
 from app.modules.external_api_logs.notifier import (  # noqa: E402
     ExternalApiFailureNotifier,
 )
@@ -29,7 +30,7 @@ from app.modules.notifications.repository import (  # noqa: E402
 from app.modules.notifications.service import NotificationService  # noqa: E402
 from app.modules.processes.repository import ProcessRepository  # noqa: E402
 from app.modules.users.repository import UserRepository  # noqa: E402
-from app.shared.deps.email import get_email_service  # noqa: E402
+from app.shared.deps.email import get_email_renderer, get_email_service  # noqa: E402
 
 
 def _env_int(name: str, default: int | None = None) -> int | None:
@@ -92,7 +93,7 @@ def run_sync(
     user_id: int | None = None,
     db: Session | None = None,
     datajud_client: DataJudClient | None = None,
-    email: EmailService | None = None,
+    email: EmailProvider | None = None,
 ):
     if db is None:
         init_db()
@@ -106,7 +107,7 @@ def run_sync(
         notifications = NotificationService(
             NotificationPreferenceRepository(db),
             users,
-            email or get_email_service(),
+            TemplatedEmailSender(get_email_renderer(), email or get_email_service()),
         )
         log_repository = ExternalApiLogRepository(db)
         service = DataJudService(

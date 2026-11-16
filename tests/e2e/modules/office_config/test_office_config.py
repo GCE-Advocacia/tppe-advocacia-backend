@@ -248,9 +248,7 @@ class TestPatchOfficeConfig:
         data = client.get(OFFICE_CONFIG_URL).json()["data"]
         assert data["color"] == "#FF5733"
 
-    def test_color_rejects_value_exceeding_max_length(
-        self, client, admin_headers
-    ):
+    def test_color_rejects_value_exceeding_max_length(self, client, admin_headers):
         response = client.patch(
             OFFICE_CONFIG_URL,
             json={"color": "x" * 51},

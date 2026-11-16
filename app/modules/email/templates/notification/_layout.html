@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block footer_note %}
+<br><br>Você recebeu este aviso porque ele está ativo nas suas preferências.
+{% if system_url %}<a href="{{ system_url }}/sistema/notificacoes">Gerenciar notificações</a>{% endif %}
+{% endblock %}

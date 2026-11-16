@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "_macros.html" import button, heading with context %}
+{% block preheader %}Defina sua senha para acessar o sistema do {{ office.name }}.{% endblock %}
+{% block content %}
+{{ heading("Você foi convidado") }}
+<p>Olá, {{ user_name }}.</p>
+<p>{% if invited_by %}{{ invited_by }} convidou você{% else %}Você foi convidado{% endif %} para acessar o sistema do {{ office.name }}. Clique no botão abaixo para definir a sua senha.</p>
+{{ button(invite_link, "Aceitar convite") }}
+<p class="small">O link vale até {{ expires_at|data_hora_br }} e só pode ser usado uma vez. Se expirar, peça um novo convite ao administrador.</p>
+{% endblock %}

@@ -1,12 +1,13 @@
 import bcrypt
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, text
+from sqlalchemy import String, cast, create_engine, delete, select, text
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
 from app.main import app
 from app.modules.email.fake_service import FakeEmailService
+from app.modules.email_outbox.model import EmailOutboxItem
 from app.modules.google_calendar.fake_service import FakeGoogleCalendarClient
 from app.modules.tasks.model import Task
 from app.modules.users.model import User
@@ -64,6 +65,14 @@ def _hash(password: str) -> str:
 
 def _teardown_user(db_session: Session, user_id: int) -> None:
     db_session.rollback()
+    email = db_session.scalar(select(User.email).where(User.id == user_id))
+    if email:
+        # E-mails que o teste deixou na fila para este usuário.
+        db_session.execute(
+            delete(EmailOutboxItem).where(
+                cast(EmailOutboxItem.to, String).ilike(f"%{email}%")
+            )
+        )
     db_session.execute(
         delete(Task).where(
             (Task.created_by == user_id)
@@ -144,6 +153,12 @@ def created_user_ids(db_session):
     ids = []
     yield ids
     for uid in ids:
+        db_session.execute(
+            delete(EmailOutboxItem).where(
+                EmailOutboxItem.related_type == "user",
+                EmailOutboxItem.related_id == uid,
+            )
+        )
         db_session.execute(delete(User).where(User.id == uid))
     db_session.commit()
 
@@ -154,6 +169,55 @@ def fake_email():
     app.dependency_overrides[get_email_service] = lambda: svc
     yield svc
     app.dependency_overrides[get_email_service] = lambda: FakeEmailService()
+
+
+def _run_outbox(provider) -> int:
+    """Roda o worker da fila uma vez com ``provider``, como o scheduler faria."""
+    from app.db.database import SessionLocal
+    from app.modules.email_outbox.repository import EmailOutboxRepository
+    from app.modules.email_outbox.service import EmailOutboxWorker
+    from app.shared.deps.email import get_email_renderer
+
+    with SessionLocal() as db:
+        worker = EmailOutboxWorker(
+            EmailOutboxRepository(db), get_email_renderer(), provider, get_settings()
+        )
+        return worker.run_once()
+
+
+@pytest.fixture
+def run_outbox():
+    return _run_outbox
+
+
+class QueuedFake:
+    """Os envios agora passam pela fila: ler ``sent`` ou ``messages``
+    processa a fila antes, como o scheduler faria."""
+
+    def __init__(self, inner: FakeEmailService) -> None:
+        self.inner = inner
+
+    @property
+    def sent(self) -> list[dict]:
+        _run_outbox(self.inner)
+        return self.inner.sent
+
+    @property
+    def messages(self) -> list:
+        _run_outbox(self.inner)
+        return self.inner.messages
+
+
+@pytest.fixture
+def queued_email(fake_email):
+    # O que outros testes deixaram na fila sai antes, num fake descartado.
+    _run_outbox(FakeEmailService())
+    return QueuedFake(fake_email)
+
+
+@pytest.fixture
+def drain_outbox(fake_email):
+    return lambda: _run_outbox(fake_email)
 
 
 @pytest.fixture

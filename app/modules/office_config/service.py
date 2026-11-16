@@ -1,6 +1,3 @@
-MAX_TOTAL_THEMES = 9
-MAX_CUSTOM_THEMES = 6
-
 from fastapi import UploadFile
 
 from app.modules.media.logo import normalize_favicon, normalize_logo
@@ -22,6 +19,8 @@ from app.shared.exceptions import (
     ThemeNotFoundError,
 )
 
+MAX_TOTAL_THEMES = 9
+MAX_CUSTOM_THEMES = 6
 
 LOGO_FIELDS: dict[LogoSlot, str] = {
     "landing-light": "logo_url",

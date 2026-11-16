@@ -1,6 +1,5 @@
 import pytest
 
-from app.modules.office_config.model import LandingPageTheme
 from app.modules.office_config.repository import ThemeRepository
 
 
@@ -70,7 +69,9 @@ class TestThemeRepository:
         theme = repo.create_theme(sample_theme_data("Original"))
         db.commit()
 
-        updated = repo.update_theme(theme, {"name": "Modificado", "color_buttons": "#000000"})
+        updated = repo.update_theme(
+            theme, {"name": "Modificado", "color_buttons": "#000000"}
+        )
         db.commit()
 
         assert updated.name == "Modificado"

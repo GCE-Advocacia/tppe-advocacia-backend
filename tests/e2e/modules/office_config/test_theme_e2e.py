@@ -1,5 +1,3 @@
-import pytest
-
 THEMES_URL = "/api/v1/office-config/themes"
 OFFICE_CONFIG_URL = "/api/v1/office-config"
 
