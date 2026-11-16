@@ -11,9 +11,10 @@ from app.modules.media.storage.object_storage import (
     get_object_storage,
 )
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_any_permission
 from app.shared.exceptions import MediaNotFoundError
 from app.shared.http.responses import SuccessResponse, error_responses, ok
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/media", tags=["Media"])
 
@@ -28,7 +29,9 @@ router = APIRouter(prefix="/media", tags=["Media"])
 def upload_file(
     file: UploadFile,
     service: MediaService = Depends(get_media_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(
+        require_any_permission(PermissionKey.ARTIGOS, PermissionKey.LANDING_PAGE)
+    ),
 ) -> SuccessResponse[MediaUploadResponse]:
     return ok(service.upload(file))
 

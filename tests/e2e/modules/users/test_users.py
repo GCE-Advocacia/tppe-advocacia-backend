@@ -12,10 +12,12 @@ class TestListUsers:
 
         assert response.status_code == 401
 
-    def test_returns_403_with_user_token(self, client, user_headers):
+    def test_selector_is_available_to_user_with_tasks_or_processes(
+        self, client, user_headers
+    ):
         response = client.get(USERS_URL, headers=user_headers)
 
-        assert response.status_code == 403
+        assert response.status_code == 200
 
     def test_success_is_true(self, client, admin_headers):
         response = client.get(USERS_URL, headers=admin_headers)

@@ -20,8 +20,9 @@ from app.modules.office_config.service import (
     ThemeService,
 )
 from app.modules.users.model import User
-from app.shared.deps.auth import require_admin
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import SuccessResponse, error_responses, ok
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/office-config", tags=["Office Config"])
 
@@ -41,12 +42,12 @@ def get_office_config(
     "",
     response_model=SuccessResponse[OfficeConfigRead],
     responses=error_responses(401, 403),
-    summary="Atualiza a configuração do escritório (admin only)",
+    summary="Atualiza a configuração do escritório",
 )
 def update_office_config(
     payload: OfficeConfigUpdate,
     service: OfficeConfigService = Depends(get_office_config_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(OfficeConfigRead.model_validate(service.update(payload)))
 
@@ -80,12 +81,12 @@ def get_theme_quota(
     response_model=SuccessResponse[ThemeRead],
     status_code=201,
     responses=error_responses(400, 401, 403, 422),
-    summary="Cria um novo tema personalizado para a landing page (admin only)",
+    summary="Cria um novo tema personalizado para a landing page",
 )
 def create_theme(
     payload: ThemeCreate,
     service: ThemeService = Depends(get_theme_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[ThemeRead]:
     theme = service.create(payload)
     return ok(ThemeRead.model_validate(theme))
@@ -95,13 +96,13 @@ def create_theme(
     "/themes/{theme_id}",
     response_model=SuccessResponse[ThemeRead],
     responses=error_responses(400, 401, 403, 404, 422),
-    summary="Atualiza um tema existente (admin only)",
+    summary="Atualiza um tema existente",
 )
 def update_theme(
     theme_id: int,
     payload: ThemeUpdate,
     service: ThemeService = Depends(get_theme_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[ThemeRead]:
     theme = service.update(theme_id, payload)
     return ok(ThemeRead.model_validate(theme))
@@ -111,12 +112,12 @@ def update_theme(
     "/themes/{theme_id}",
     status_code=204,
     responses=error_responses(400, 401, 403, 404),
-    summary="Exclui um tema personalizado (admin only)",
+    summary="Exclui um tema personalizado",
 )
 def delete_theme(
     theme_id: int,
     service: ThemeService = Depends(get_theme_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> None:
     service.delete(theme_id)
 
@@ -125,12 +126,12 @@ def delete_theme(
     "/themes/{theme_id}/apply",
     response_model=SuccessResponse[OfficeConfigRead],
     responses=error_responses(400, 401, 403, 404),
-    summary="Aplica a paleta de cores de um tema na landing page (admin only)",
+    summary="Aplica a paleta de cores de um tema na landing page",
 )
 def apply_theme(
     theme_id: int,
     service: ThemeService = Depends(get_theme_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[OfficeConfigRead]:
     config = service.apply(theme_id)
     return ok(OfficeConfigRead.model_validate(config))
@@ -140,14 +141,14 @@ def apply_theme(
     "/logo",
     response_model=SuccessResponse[OfficeConfigRead],
     responses=error_responses(401, 403, 413, 415, 422),
-    summary="Substitui e salva a logo do escritório (admin only)",
+    summary="Substitui e salva a logo do escritório",
 )
 def update_office_logo(
     file: UploadFile = File(...),
     slot: LogoSlot = "landing-light",
     make_default: bool = Form(False),
     service: OfficeConfigService = Depends(get_office_config_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(
         OfficeConfigRead.model_validate(service.update_logo(file, slot, make_default))
@@ -157,13 +158,13 @@ def update_office_logo(
 @router.post(
     "/logo/preview",
     responses=error_responses(401, 403, 413, 415, 422),
-    summary="Prévia da logo sem salvar (admin only)",
+    summary="Prévia da logo sem salvar",
 )
 def preview_office_logo(
     file: UploadFile = File(...),
     slot: LogoSlot = "landing-light",
     service: OfficeConfigService = Depends(get_office_config_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> Response:
     return Response(
         service.preview_logo(file, slot),
@@ -176,13 +177,13 @@ def preview_office_logo(
     "/logo",
     response_model=SuccessResponse[OfficeConfigRead],
     responses=error_responses(401, 403),
-    summary="Restaura a logo padrão (admin only)",
+    summary="Restaura a logo padrão",
 )
 def reset_office_logo(
     slot: LogoSlot = "landing-light",
     factory: bool = False,
     service: OfficeConfigService = Depends(get_office_config_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(OfficeConfigRead.model_validate(service.reset_logo(slot, factory)))
 
@@ -191,12 +192,12 @@ def reset_office_logo(
     "/logo",
     response_model=SuccessResponse[OfficeConfigRead],
     responses=error_responses(401, 403, 422),
-    summary="Configura o compartilhamento das logos (admin only)",
+    summary="Configura o compartilhamento das logos",
 )
 def update_logo_settings(
     payload: LogoSettingsUpdate,
     service: OfficeConfigService = Depends(get_office_config_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(OfficeConfigRead.model_validate(service.update_logo_settings(payload)))
 
@@ -205,12 +206,12 @@ def update_logo_settings(
     "/logo/default",
     response_model=SuccessResponse[OfficeConfigRead],
     responses=error_responses(401, 403, 422),
-    summary="Define a logo atual como padrão (admin only)",
+    summary="Define a logo atual como padrão",
 )
 def set_office_logo_default(
     slot: LogoSlot = "landing-light",
     service: OfficeConfigService = Depends(get_office_config_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LANDING_PAGE)),
 ) -> SuccessResponse[OfficeConfigRead]:
     return ok(OfficeConfigRead.model_validate(service.set_logo_default(slot)))
 

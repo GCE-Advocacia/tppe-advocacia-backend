@@ -14,7 +14,11 @@ from app.modules.clients.schema import (
 from app.modules.clients.service import ClientService
 from app.modules.clients.timeline_service import ClientTimelineService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user, require_admin
+from app.shared.deps.auth import (
+    require_admin,
+    require_any_permission,
+    require_permission,
+)
 from app.shared.exceptions import ConfirmationRequiredError
 from app.shared.http.responses import (
     PaginatedResponse,
@@ -23,6 +27,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
 
@@ -37,7 +42,7 @@ router = APIRouter(prefix="/clients", tags=["Clients"])
 def create_client(
     payload: ClientCreate,
     service: ClientService = Depends(get_client_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> SuccessResponse[ClientRead]:
     return ok(
         ClientRead.model_validate(
@@ -57,7 +62,15 @@ def list_clients(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ClientService = Depends(get_client_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(
+        require_any_permission(
+            PermissionKey.CLIENTES,
+            PermissionKey.AGENDA,
+            PermissionKey.PAGAMENTOS,
+            PermissionKey.PROCESSOS,
+            PermissionKey.TAREFAS,
+        )
+    ),
 ) -> PaginatedResponse[ClientListItem]:
     items, total = service.list_clients(search=search, page=page, limit=limit)
     return paginated(
@@ -77,7 +90,7 @@ def list_clients(
 def get_client(
     client_id: int,
     service: ClientService = Depends(get_client_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> SuccessResponse[ClientRead]:
     return ok(
         ClientRead.model_validate(service.get_client(client_id, requester=current_user))
@@ -94,7 +107,7 @@ def update_client(
     client_id: int,
     payload: ClientUpdate,
     service: ClientService = Depends(get_client_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> SuccessResponse[ClientRead]:
     return ok(
         ClientRead.model_validate(
@@ -134,7 +147,7 @@ def create_note(
     client_id: int,
     payload: ClientNoteCreate,
     service: ClientService = Depends(get_client_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> SuccessResponse[ClientNoteRead]:
     return ok(
         ClientNoteRead.model_validate(
@@ -154,7 +167,7 @@ def list_notes(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ClientService = Depends(get_client_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> PaginatedResponse[ClientNoteRead]:
     items, total = service.list_notes(client_id, page=page, limit=limit)
     return paginated(
@@ -177,7 +190,7 @@ def get_client_timeline(
     processes_limit: int = Query(20, ge=1, le=50),
     activity_limit: int = Query(20, ge=1, le=50),
     service: ClientTimelineService = Depends(get_client_timeline_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> SuccessResponse[ClientTimelineRead]:
     return ok(
         service.get_timeline(
@@ -201,7 +214,7 @@ def update_note(
     note_id: int,
     payload: ClientNoteUpdate,
     service: ClientService = Depends(get_client_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.CLIENTES)),
 ) -> SuccessResponse[ClientNoteRead]:
     return ok(
         ClientNoteRead.model_validate(

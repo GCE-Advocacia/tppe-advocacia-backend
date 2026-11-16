@@ -9,7 +9,7 @@ from app.modules.articles.schema import (
 )
 from app.modules.articles.service import ArticleService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -17,6 +17,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/articles", tags=["Articles"])
 
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/articles", tags=["Articles"])
 def create_article(
     payload: ArticleCreate,
     service: ArticleService = Depends(get_article_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.ARTIGOS)),
 ) -> SuccessResponse[ArticleRead]:
     return ok(ArticleRead.model_validate(service.create(payload, current_user)))
 
@@ -46,7 +47,7 @@ def update_article(
     article_id: int,
     payload: ArticleUpdate,
     service: ArticleService = Depends(get_article_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.ARTIGOS)),
 ) -> SuccessResponse[ArticleRead]:
     return ok(ArticleRead.model_validate(service.update(article_id, payload)))
 
@@ -62,7 +63,7 @@ def list_all_articles(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ArticleService = Depends(get_article_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.ARTIGOS)),
 ) -> PaginatedResponse[ArticleListItem]:
     items, total = service.list_all(page=page, limit=limit)
     return paginated(
@@ -94,7 +95,7 @@ def list_all_articles(
 def preview_article(
     article_id: int,
     service: ArticleService = Depends(get_article_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.ARTIGOS)),
 ) -> SuccessResponse[ArticleRead]:
     return ok(ArticleRead.model_validate(service.get_preview(article_id)))
 

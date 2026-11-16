@@ -10,7 +10,7 @@ from app.modules.finance.schema import (
 )
 from app.modules.finance.service import FinanceService
 from app.modules.users.model import User
-from app.shared.deps.auth import require_admin
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -18,6 +18,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/finance", tags=["Finance"])
 
@@ -27,12 +28,12 @@ router = APIRouter(prefix="/finance", tags=["Finance"])
     status_code=status.HTTP_201_CREATED,
     response_model=SuccessResponse[FinancialTransactionRead],
     responses=error_responses(401, 403, 422),
-    summary="Registra uma entrada financeira (admin)",
+    summary="Registra uma entrada financeira",
 )
 def create_income(
     payload: FinancialTransactionCreate,
     service: FinanceService = Depends(get_finance_service),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission(PermissionKey.FINANCEIRO)),
 ) -> SuccessResponse[FinancialTransactionRead]:
     transaction = service.create_income(payload, current_user)
     return ok(FinancialTransactionRead.model_validate(transaction))
@@ -43,12 +44,12 @@ def create_income(
     status_code=status.HTTP_201_CREATED,
     response_model=SuccessResponse[FinancialTransactionRead],
     responses=error_responses(401, 403, 422),
-    summary="Registra uma saída financeira (admin)",
+    summary="Registra uma saída financeira",
 )
 def create_expense(
     payload: FinancialTransactionCreate,
     service: FinanceService = Depends(get_finance_service),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission(PermissionKey.FINANCEIRO)),
 ) -> SuccessResponse[FinancialTransactionRead]:
     transaction = service.create_expense(payload, current_user)
     return ok(FinancialTransactionRead.model_validate(transaction))
@@ -58,7 +59,7 @@ def create_expense(
     "/transactions",
     response_model=PaginatedResponse[FinancialTransactionRead],
     responses=error_responses(401, 403, 422),
-    summary="Lista entradas e saídas financeiras, com filtro por período (admin)",
+    summary="Lista entradas e saídas financeiras, com filtro por período",
 )
 def list_transactions(
     date_from: date | None = Query(None),
@@ -66,7 +67,7 @@ def list_transactions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: FinanceService = Depends(get_finance_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.FINANCEIRO)),
 ) -> PaginatedResponse[FinancialTransactionRead]:
     items, total = service.list_transactions(
         page=page, limit=limit, date_from=date_from, date_to=date_to
@@ -83,12 +84,12 @@ def list_transactions(
     "/summary",
     response_model=SuccessResponse[FinancialSummaryRead],
     responses=error_responses(401, 403, 422),
-    summary="Resumo financeiro: total de entradas, total de saídas e saldo (admin)",
+    summary="Resumo financeiro: total de entradas, total de saídas e saldo",
 )
 def get_summary(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     service: FinanceService = Depends(get_finance_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.FINANCEIRO)),
 ) -> SuccessResponse[FinancialSummaryRead]:
     return ok(service.get_summary(date_from=date_from, date_to=date_to))

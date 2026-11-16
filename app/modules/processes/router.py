@@ -18,7 +18,7 @@ from app.modules.processes.schema import (
 )
 from app.modules.processes.service import ProcessService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_any_permission, require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
@@ -26,6 +26,7 @@ from app.shared.http.responses import (
     ok,
     paginated,
 )
+from app.shared.types import PermissionKey
 
 router = APIRouter(tags=["Processes"])
 
@@ -40,7 +41,7 @@ router = APIRouter(tags=["Processes"])
 def create_process(
     payload: ProcessCreate,
     service: ProcessService = Depends(get_process_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[ProcessRead]:
     return ok(
         ProcessRead.model_validate(
@@ -62,7 +63,14 @@ def list_processes(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ProcessService = Depends(get_process_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(
+        require_any_permission(
+            PermissionKey.PROCESSOS,
+            PermissionKey.CLIENTES,
+            PermissionKey.AGENDA,
+            PermissionKey.TAREFAS,
+        )
+    ),
 ) -> PaginatedResponse[ProcessListItem]:
     items, total = service.list_processes(
         client_id=client_id,
@@ -88,7 +96,7 @@ def list_processes(
 def get_process(
     process_id: int,
     service: ProcessService = Depends(get_process_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[ProcessRead]:
     return ok(ProcessRead.model_validate(service.get_process(process_id)))
 
@@ -103,7 +111,7 @@ def change_process_status(
     process_id: int,
     payload: ProcessStatusChange,
     service: ProcessService = Depends(get_process_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[ProcessStatusChangeResponse]:
     process, movement = service.change_status(process_id, payload, current_user)
     return ok(ProcessStatusChangeResponse.from_process(process, movement.id))
@@ -120,7 +128,7 @@ def create_movement(
     process_id: int,
     payload: MovementCreate,
     service: ProcessService = Depends(get_process_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[MovementRead]:
     return ok(
         MovementRead.model_validate(
@@ -143,7 +151,7 @@ def list_movements(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ProcessService = Depends(get_process_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> PaginatedResponse[MovementRead]:
     items, total = service.list_movements(
         process_id,
@@ -172,7 +180,7 @@ def create_process_note(
     process_id: int,
     payload: ProcessNoteCreate,
     service: ProcessService = Depends(get_process_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[ProcessNoteRead]:
     return ok(
         ProcessNoteRead.model_validate(
@@ -192,7 +200,7 @@ def list_process_notes(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ProcessService = Depends(get_process_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> PaginatedResponse[ProcessNoteRead]:
     items, total = service.list_notes(process_id, page=page, limit=limit)
     return paginated(
@@ -214,7 +222,7 @@ def update_process_note(
     note_id: int,
     payload: ProcessNoteUpdate,
     service: ProcessService = Depends(get_process_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.PROCESSOS)),
 ) -> SuccessResponse[ProcessNoteRead]:
     return ok(
         ProcessNoteRead.model_validate(
@@ -234,7 +242,9 @@ def list_processes_by_client(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ProcessService = Depends(get_process_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(
+        require_any_permission(PermissionKey.PROCESSOS, PermissionKey.CLIENTES)
+    ),
 ) -> PaginatedResponse[ProcessListItem]:
     items, total = service.list_by_client(client_id, page=page, limit=limit)
     return paginated(

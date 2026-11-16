@@ -15,8 +15,9 @@ from app.modules.google_calendar.schema import (
 )
 from app.modules.google_calendar.service import GoogleCalendarService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import SuccessResponse, error_responses, ok
+from app.shared.types import PermissionKey
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/integrations/google", tags=["Google Calendar"])
 )
 def get_google_auth_url(
     service: GoogleCalendarService = Depends(get_google_calendar_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[GoogleAuthUrlRead]:
     return ok(GoogleAuthUrlRead(auth_url=service.build_auth_url(current_user.id)))
 
@@ -68,7 +69,7 @@ def google_callback(
 )
 def get_google_status(
     service: GoogleCalendarService = Depends(get_google_calendar_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[GoogleStatusRead]:
     return ok(service.get_status(current_user.id))
 
@@ -81,7 +82,7 @@ def get_google_status(
 )
 def disconnect_google(
     service: GoogleCalendarService = Depends(get_google_calendar_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> Response:
     service.disconnect(current_user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -95,7 +96,7 @@ def disconnect_google(
 )
 def sync_all_appointments(
     appointment_service: AppointmentService = Depends(get_appointment_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[AppointmentSyncResult]:
     return ok(appointment_service.sync_all_to_google(current_user))
 
@@ -108,6 +109,6 @@ def sync_all_appointments(
 )
 def pull_from_google(
     service: GoogleCalendarService = Depends(get_google_calendar_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.AGENDA)),
 ) -> SuccessResponse[GooglePullResult]:
     return ok(service.pull_changes(current_user.id))

@@ -62,7 +62,7 @@ def deadline_with_alerts(db_session: Session, client, user_headers, process_fixt
 
 
 @pytest.fixture
-def other_user_headers(db_session: Session, client):
+def other_user_headers(db_session: Session, client, grant_permissions):
     password = "Valid@1234"
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     user = UserRepository(db_session).create(
@@ -71,7 +71,7 @@ def other_user_headers(db_session: Session, client):
         hashed_password=hashed,
         role=Role.USER,
     )
-    db_session.commit()
+    grant_permissions(user.id, ["processos"])
     response = client.post(
         "/api/v1/auth/login",
         json={"email": user.email, "password": password},

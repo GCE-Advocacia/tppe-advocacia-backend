@@ -52,7 +52,7 @@ class AuthService:
         token_data = {
             "sub": str(user.id),
             "role": user.role.value,
-            "can_view_payments": user.can_view_payments,
+            "permissions": [permission.key for permission in user.permissions],
             "exp": expire,
         }
         token = jwt.encode(token_data, settings.jwt_secret_key, algorithm="HS256")
