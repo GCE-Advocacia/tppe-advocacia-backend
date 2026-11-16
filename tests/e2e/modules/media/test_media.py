@@ -102,6 +102,39 @@ class TestServeFile:
         assert response.status_code == 404
         assert b"JWT_SECRET_KEY=leaked" not in response.content
 
+    @pytest.mark.parametrize(
+        "traversal_key",
+        [
+            "..%5Csecret.env",
+            "..%2F..%2Fsecret.env",
+            "%2e%2e%2fsecret.env",
+            "etc/passwd",
+            "subdir/12345678-1234-1234-1234-123456789012.jpg",
+            "non-uuid-file.jpg",
+        ],
+    )
+    def test_serve_rejects_path_traversal_variants_returns_404(
+        self, client, media_dir, traversal_key
+    ):
+        secret = media_dir.parent / "secret.env"
+        secret.write_bytes(b"JWT_SECRET_KEY=leaked")
+        response = client.get(f"/api/v1/media/{traversal_key}")
+        assert response.status_code == 404
+        assert b"JWT_SECRET_KEY=leaked" not in response.content
+
+    def test_upload_exceeding_default_5mb_limit_returns_413(
+        self, client, user_headers, media_dir, monkeypatch
+    ):
+        monkeypatch.setattr(get_settings(), "max_file_size_mb", 5)
+        big_content = b"\x00" * (5 * 1024 * 1024 + 1024)
+        response = client.post(
+            "/api/v1/media/upload",
+            files=[("file", ("oversize.jpg", io.BytesIO(big_content), "image/jpeg"))],
+            headers=user_headers,
+        )
+        assert response.status_code == 413
+        assert response.json()["error"]["code"] == "FILE_TOO_LARGE"
+
     def test_route_is_disabled_when_using_bucket(self, client, media_dir, monkeypatch):
         name = "12345678-1234-1234-1234-123456789012.jpg"
         (media_dir / name).write_bytes(jpeg_bytes())

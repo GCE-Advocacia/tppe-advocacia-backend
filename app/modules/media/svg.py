@@ -5,8 +5,14 @@ import re
 from xml.etree.ElementTree import ParseError, tostring
 
 import tinycss2
-from cairocffi import CairoError
-from cairosvg.surface import PNGSurface
+
+try:
+    from cairocffi import CairoError
+    from cairosvg.surface import PNGSurface
+except (ImportError, OSError):
+    CairoError = Exception  # type: ignore
+    PNGSurface = None  # type: ignore
+
 from defusedxml.common import DefusedXmlException
 from defusedxml.ElementTree import fromstring
 
@@ -27,21 +33,29 @@ _UNITS = {
 }
 
 
-class _LogoSurface(PNGSurface):
-    def draw(self, node):
-        # CairoSVG 2.9.1 skips group opacity on <use> because its referenced
-        # children are drawn indirectly. Composite that node as a group.
-        opacity = float(node.get("opacity", 1))
-        if node.tag != "use" or opacity >= 1:
-            return super().draw(node)
-        self.context.push_group()
-        node["opacity"] = "1"
-        try:
-            super().draw(node)
-        finally:
-            node["opacity"] = str(opacity)
-            self.context.pop_group_to_source()
-        self.context.paint_with_alpha(max(0, opacity))
+if PNGSurface is not None:
+
+    class _LogoSurface(PNGSurface):
+        def draw(self, node):
+            # CairoSVG 2.9.1 skips group opacity on <use> because its referenced
+            # children are drawn indirectly. Composite that node as a group.
+            opacity = float(node.get("opacity", 1))
+            if node.tag != "use" or opacity >= 1:
+                return super().draw(node)
+            self.context.push_group()
+            node["opacity"] = "1"
+            try:
+                super().draw(node)
+            finally:
+                node["opacity"] = str(opacity)
+                self.context.pop_group_to_source()
+            self.context.paint_with_alpha(max(0, opacity))
+else:
+
+    class _LogoSurface:
+        @classmethod
+        def convert(cls, *args, **kwargs):
+            raise InvalidLogoImageError()
 
 
 def _validate_css(value: str) -> None:
