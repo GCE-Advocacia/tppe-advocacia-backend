@@ -1,6 +1,3 @@
-MAX_TOTAL_THEMES = 9
-MAX_CUSTOM_THEMES = 6
-
 from fastapi import UploadFile
 
 from app.modules.media.logo import normalize_favicon, normalize_logo
@@ -12,15 +9,20 @@ from app.modules.office_config.schema import (
     LogoSlot,
     OfficeConfigUpdate,
     ThemeCreate,
+    ThemeDuplicate,
     ThemeUpdate,
 )
 from app.shared.db.uow import unit_of_work
 from app.shared.exceptions import (
     LogoNotConfiguredError,
     PredefinedThemeCannotBeDeletedError,
+    PredefinedThemeCannotBeUpdatedError,
     ThemeLimitExceededError,
     ThemeNotFoundError,
 )
+
+MAX_TOTAL_THEMES = 9
+MAX_CUSTOM_THEMES = 6
 
 
 LOGO_FIELDS: dict[LogoSlot, str] = {
@@ -173,10 +175,22 @@ class ThemeService:
         if not theme:
             raise ThemeNotFoundError()
 
+        if theme.is_predefined:
+            raise PredefinedThemeCannotBeUpdatedError()
         data = payload.model_dump(mode="json", exclude_unset=True)
         data.pop("is_predefined", None)
         with unit_of_work(self.repository.db):
             return self.repository.update_theme(theme, data)
+
+    def duplicate(
+        self, theme_id: int, payload: ThemeDuplicate | None = None
+    ) -> LandingPageTheme:
+        theme = self.get_by_id(theme_id)
+        data = {name: getattr(theme, name) for name in ThemeCreate.model_fields}
+        data["name"] = f"{theme.name[:92]} (Cópia)"
+        if payload:
+            data.update(payload.model_dump(exclude_unset=True, exclude_none=True))
+        return self.create(ThemeCreate(**data))
 
     def delete(self, theme_id: int) -> None:
         theme = self.repository.get_by_id(theme_id)

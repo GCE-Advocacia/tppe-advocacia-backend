@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+
 import pytest
 
 from app.modules.office_config.model import LandingPageTheme, OfficeConfig
@@ -247,3 +248,23 @@ class TestThemeQuota:
         quota = service.get_quota()
         assert quota["is_limit_reached"] is True
 
+
+class TestPredefinedThemeAudit:
+    """TC-S1-01: even administrators cannot overwrite official themes."""
+
+    @pytest.mark.parametrize(
+        "changes", [{"name": "Changed"}, {"color_buttons": "#123456"}]
+    )
+    def test_predefined_update_is_forbidden_without_writing(
+        self, service, repo, changes
+    ):
+        from app.shared.exceptions import AppException
+
+        theme = make_theme(is_predefined=True)
+        repo.get_by_id.return_value = theme
+        with pytest.raises(AppException) as error:
+            service.update(theme.id, ThemeUpdate(**changes))
+        assert error.value.status_code == 403
+        assert error.value.code == "PREDEFINED_THEME_UPDATE_NOT_ALLOWED"
+        repo.update_theme.assert_not_called()
+        repo.db.commit.assert_not_called()
