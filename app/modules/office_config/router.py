@@ -20,7 +20,7 @@ from app.modules.office_config.service import (
     ThemeService,
 )
 from app.modules.users.model import User
-from app.shared.deps.auth import require_permission
+from app.shared.deps.auth import require_admin, require_permission
 from app.shared.http.responses import SuccessResponse, error_responses, ok
 from app.shared.types import PermissionKey
 

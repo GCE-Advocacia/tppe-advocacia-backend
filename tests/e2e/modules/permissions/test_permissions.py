@@ -315,8 +315,7 @@ PUBLIC_ROUTES = {
     ("GET", "/api/v1/office-config/themes/quota"),
     ("GET", "/api/v1/articles"),
     ("GET", "/api/v1/articles/{article_id}"),
-    ("GET", "/api/v1/media/logos/{filename}"),
-    ("GET", "/api/v1/media/{filename}"),
+    ("GET", "/api/v1/media/{key:path}"),
     ("GET", "/api/v1/integrations/google/callback"),
     ("GET", "/api/v1/integrations/google-drive/callback"),
 }
