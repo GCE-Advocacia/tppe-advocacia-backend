@@ -1,4 +1,4 @@
-FROM ghcr.io/bessazs/docker-images/python:3.10-slim 
+FROM python:3.15.2-slim 
 
 WORKDIR /app
 
@@ -25,4 +25,8 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
 
-CMD ["sh", "scripts/start.sh"]
+CMD ["sh", "scripts/start.sh"]   
+
+
+
+       

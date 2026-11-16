@@ -40,6 +40,9 @@ class OfficeConfig(Base):
     system_uses_landing_logo: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=true()
     )
+    system_uses_landing_buttons: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true()
+    )
     cnpj: Mapped[str | None] = mapped_column(String(18), nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -75,6 +78,9 @@ class OfficeConfig(Base):
     color_buttons: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_buttons_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_buttons_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_text_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -104,6 +110,12 @@ class LandingPageTheme(Base):
     color_buttons: Mapped[str] = mapped_column(String(50), nullable=False)
     color_buttons_hover: Mapped[str] = mapped_column(String(50), nullable=False)
     color_buttons_text: Mapped[str] = mapped_column(String(50), nullable=False)
+    system_uses_landing_buttons: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true(), nullable=False
+    )
+    color_buttons_system: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system_hover: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    color_buttons_system_text: Mapped[str | None] = mapped_column(String(50), nullable=True)
     color_title_primary: Mapped[str] = mapped_column(String(50), nullable=False)
     color_title_secondary: Mapped[str] = mapped_column(String(50), nullable=False)
     color_text_primary: Mapped[str] = mapped_column(String(50), nullable=False)
