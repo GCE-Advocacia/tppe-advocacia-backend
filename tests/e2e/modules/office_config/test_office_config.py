@@ -523,6 +523,28 @@ class TestDifferentialsAndAreasLimits:
         )
         assert response.status_code == 422
 
+    def test_get_office_config_with_legacy_empty_titles_returns_200(
+        self, client, db_session
+    ):
+        from app.modules.office_config.model import OfficeConfig
+
+        config = db_session.get(OfficeConfig, 1)
+        config.differentials = [
+            {"title": "", "description": "Legado 1"},
+            {"id": 99, "title": "", "description": "Legado com id extra"},
+        ]
+        config.areas_of_practice = [{"title": "", "description": "Area legada"}]
+        db_session.commit()
+
+        response = client.get(OFFICE_CONFIG_URL)
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert len(data["differentials"]) == 2
+        assert data["differentials"][0]["title"] == ""
+        assert data["differentials"][0]["description"] == "Legado 1"
+        assert len(data["areas_of_practice"]) == 1
+        assert data["areas_of_practice"][0]["title"] == ""
+
 
 class TestImagesAndPositionsPersistence:
     """TC-S3-03: Persistência de *_image_url e *_image_position"""

@@ -4,6 +4,18 @@ from typing import Annotated, Literal
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
 
+class ReadListItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    title: str = Field(default="", max_length=200)
+    description: str = Field(default="", max_length=1000)
+
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def coerce_str(cls, v: object) -> str:
+        return "" if v is None else str(v)
+
+
 class ListItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -151,8 +163,8 @@ class OfficeConfigRead(BaseModel):
     lawyer_image_url: str | None
     lawyer_image_position: str | None
 
-    differentials: list[ListItem] = []
-    areas_of_practice: list[ListItem] = []
+    differentials: list[ReadListItem] = []
+    areas_of_practice: list[ReadListItem] = []
 
     color: str | None = None
     color_bg_primary: str | None = None
