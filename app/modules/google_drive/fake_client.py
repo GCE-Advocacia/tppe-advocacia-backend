@@ -24,6 +24,18 @@ class FakeDriveClient:
         self.folders[folder_id] = (name, parent_id)
         return folder_id
 
+    def find_folder(self, name: str, parent_id: str | None) -> str | None:
+        self._check()
+        # dict mantém a ordem de criação: a primeira é a mais antiga.
+        for folder_id, (folder_name, parent) in self.folders.items():
+            if (
+                folder_name == name
+                and parent == parent_id
+                and self.folder_exists(folder_id)
+            ):
+                return folder_id
+        return None
+
     def folder_exists(self, folder_id: str) -> bool:
         self._check()
         # Como no Drive: o que está dentro de uma pasta na lixeira também está.

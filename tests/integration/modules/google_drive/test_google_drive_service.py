@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 import jwt
 import pytest
 from cryptography.fernet import Fernet
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.modules.clients.repository import ClientRepository
@@ -19,6 +20,7 @@ from app.modules.google_calendar.service import GoogleOAuthError
 from app.modules.google_drive import service as drive_service_module
 from app.modules.google_drive.client import DriveApiError, DriveAuthRevokedError
 from app.modules.google_drive.fake_client import FakeDriveClient
+from app.modules.google_drive.model import GoogleDriveConnection, ProcessDriveFolder
 from app.modules.google_drive.repository import (
     GoogleDriveConnectionRepository,
     ProcessDriveFolderRepository,
@@ -205,6 +207,71 @@ class TestFolders:
         assert fake.folder_exists(new_folder)
         assert fake.folder_exists(fake.folders[new_folder][1])
         assert ProcessDriveFolderRepository(db).get_folder_id(process_id) == new_folder
+
+    def test_reconnecting_reuses_existing_root_folder(
+        self, service, users, process_id, fake
+    ):
+        connect(service, users["admin"])
+        root = service.root_folder_id(service.client())
+
+        connect(service, users["admin"])  # reconectar zera o root_folder_id
+        assert service.root_folder_id(service.client()) == root
+        roots = [f for f in fake.folders.values() if f == (ROOT_FOLDER_NAME, None)]
+        assert len(roots) == 1
+
+    def test_lost_process_folder_reference_reuses_existing_folder(
+        self, service, users, process_id, fake, db
+    ):
+        connect(service, users["admin"])
+        client = service.client()
+        folder = service.process_folder_id(client, process_id, PROCESS_NUMBER)
+        db.query(ProcessDriveFolder).delete()
+        db.commit()
+
+        assert service.process_folder_id(client, process_id, PROCESS_NUMBER) == folder
+        assert len(fake.folders) == 2
+
+    def test_root_folder_saved_by_another_request_is_reread_under_lock(
+        self, service, users, fake, db
+    ):
+        connect(service, users["admin"])
+        client = service.client()
+        # A sessão desta requisição já leu a conexão, ainda sem pasta.
+        stale = GoogleDriveConnectionRepository(db).get()
+        assert stale.root_folder_id is None
+        other_root = fake.create_folder(ROOT_FOLDER_NAME, None)
+        # Outra requisição grava a pasta pela própria sessão.
+        with Session(db.get_bind()) as other:
+            other.execute(
+                update(GoogleDriveConnection).values(root_folder_id=other_root)
+            )
+            other.commit()
+        fake.find_folder = lambda name, parent_id: None  # só o banco pode salvar
+
+        assert service.root_folder_id(client) == other_root
+        assert len(fake.folders) == 1
+
+    def test_folder_creation_locks_the_connection_row(
+        self, service, users, process_id, db, monkeypatch
+    ):
+        connect(service, users["admin"])
+        statements = []
+        original = db.scalars
+        monkeypatch.setattr(
+            db,
+            "scalars",
+            lambda stmt, *a, **kw: statements.append(stmt) or original(stmt, *a, **kw),
+        )
+
+        service.process_folder_id(service.client(), process_id, PROCESS_NUMBER)
+
+        locked = [
+            s
+            for s in statements
+            if getattr(s, "_for_update_arg", None) is not None
+            and GoogleDriveConnection.__table__ in s.get_final_froms()
+        ]
+        assert locked
 
 
 class TestFailures:

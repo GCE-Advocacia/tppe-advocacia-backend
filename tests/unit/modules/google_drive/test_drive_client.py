@@ -97,6 +97,31 @@ class TestGoogleDriveApiClient:
         client = client_with_responses(({"status": "404"}, b"{}"))
         assert client.folder_exists("gone") is False
 
+    def test_find_folder_searches_by_name_and_parent_and_returns_oldest(self):
+        service = MagicMock()
+        service.files.return_value.list.return_value.execute.return_value = {
+            "files": [{"id": "oldest"}]
+        }
+        found = client_with_service(service).find_folder("D'Ávila \\ Cia", "parent-1")
+        assert found == "oldest"
+        kwargs = service.files.return_value.list.call_args.kwargs
+        assert kwargs["q"] == (
+            "name = 'D\\'Ávila \\\\ Cia' and "
+            "mimeType = 'application/vnd.google-apps.folder' and "
+            "trashed = false and 'parent-1' in parents"
+        )
+        assert kwargs["orderBy"] == "createdTime"
+        assert kwargs["pageSize"] == 1
+
+    def test_find_folder_without_parent_searches_my_drive_root(self):
+        service = MagicMock()
+        service.files.return_value.list.return_value.execute.return_value = {
+            "files": []
+        }
+        assert client_with_service(service).find_folder("Pasta", None) is None
+        q = service.files.return_value.list.call_args.kwargs["q"]
+        assert q.endswith("'root' in parents")
+
 
 class TestFakeDriveClient:
     def test_trash_hides_folder_from_folder_exists(self):
@@ -119,6 +144,17 @@ class TestFakeDriveClient:
         file_id = fake.upload_file("a.pdf", b"conteudo", "application/pdf", folder)
         assert fake.download_file(file_id) == b"conteudo"
         assert fake.files[file_id] == ("a.pdf", b"conteudo", "application/pdf", folder)
+
+    def test_find_folder_returns_oldest_live_match_in_parent(self):
+        fake = FakeDriveClient()
+        root = fake.create_folder("Raiz", None)
+        trashed = fake.create_folder("Pasta", root)
+        fake.trash_file(trashed)
+        fake.create_folder("Pasta", None)  # mesmo nome, outro pai
+        first = fake.create_folder("Pasta", root)
+        fake.create_folder("Pasta", root)
+        assert fake.find_folder("Pasta", root) == first
+        assert fake.find_folder("Outra", root) is None
 
     def test_download_missing_raises_not_found(self):
         with pytest.raises(DriveNotFoundError):
