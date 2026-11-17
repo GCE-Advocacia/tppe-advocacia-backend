@@ -321,6 +321,8 @@ PUBLIC_ROUTES = {
     # Convite: quem aceita ainda não tem login; o token de uso único é a guarda.
     ("GET", "/api/v1/invites/{token}"),
     ("POST", "/api/v1/invites/{token}/accept"),
+    # Volta do Google: o state assinado identifica o admin.
+    ("GET", "/api/v1/email-settings/gmail/callback"),
 }
 
 # O status do Drive já era visível a todo usuário autenticado em main.

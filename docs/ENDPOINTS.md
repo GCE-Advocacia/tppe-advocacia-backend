@@ -484,6 +484,12 @@ Login de usuário `INVITED` devolve `403 INVITE_NOT_ACCEPTED`.
 - `POST /profiles/{id}/test-connection`: mesmo body do `PUT` (sem `version`). Conecta, faz EHLO, TLS e login e desconecta sem enviar. Resposta `{ "ok", "steps": [{ "step": "connect" | "ehlo" | "tls" | "auth", "ok", "duration_ms", "error" }] }`.
 - `POST /profiles/{id}/test-send`: body `{ "to" }`. Envia o template `test` pelo perfil salvo (sem failover). Limite de 5 por minuto por admin. `502 EMAIL_TEST_SEND_FAILED` se o provedor recusar.
 
+**Gmail pela API (sem SMTP)**: para hospedagens que bloqueiam as portas de SMTP (ex.: Render gratuito). A conta Google conectada vira a conta própria (`provider` = `gmail`), com o refresh token criptografado por `EMAIL_ENCRYPTION_KEYS`; se ela falhar, a conta do sistema envia no lugar. Exige `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_GMAIL_REDIRECT_URI` e `EMAIL_ENCRYPTION_KEYS`; `GET /email-settings` devolve `gmail_available` para a tela mostrar o botão.
+
+- `GET /gmail/auth-url`: `{ "auth_url" }` do consentimento do Google (escopos `openid`, `userinfo.email` e `gmail.send`). `503 GMAIL_NOT_CONFIGURED` sem as credenciais.
+- `GET /gmail/callback` (público, chamado pelo Google): troca o `code`, confere se a permissão de enviar foi concedida e volta para `/sistema/configuracoes-email?gmail=` com `connected`, `permission` (o admin desmarcou o envio), `cancelled` ou `error`.
+- `DELETE /gmail`: desconecta, revoga o acesso no Google e volta a enviar pela conta do sistema. `204`.
+
 ---
 
 ### `GET /api/v1/users/{id}`

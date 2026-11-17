@@ -8,8 +8,13 @@ from app.modules.audit_logs.service import AuditLogService
 from app.modules.email.protocol import EmailProvider
 from app.modules.email.renderer import EmailRenderer
 from app.modules.email_settings.connection_test import ConnectionTester
+from app.modules.email_settings.gmail import (
+    GmailConnectService,
+    build_gmail_connect_service,
+)
 from app.modules.email_settings.repository import EmailProfileRepository
 from app.modules.email_settings.service import EmailSettingsService
+from app.modules.users.repository import UserRepository
 from app.shared.deps.email import get_email_renderer, get_email_service
 
 
@@ -30,4 +35,13 @@ def get_email_settings_service(
         renderer=renderer,
         settings=get_settings(),
         email_service=lambda: email,
+    )
+
+
+def get_gmail_connect_service(db: Session = Depends(get_db)) -> GmailConnectService:
+    return build_gmail_connect_service(
+        EmailProfileRepository(db),
+        UserRepository(db),
+        AuditLogService(AuditLogRepository(db)),
+        get_settings(),
     )

@@ -620,6 +620,16 @@ class GoogleDriveUnavailableError(AppException):
         )
 
 
+class GmailNotConfiguredError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "GMAIL_NOT_CONFIGURED",
+            "A conexão com o Gmail ainda não está disponível neste servidor. "
+            "Peça ao suporte para configurar as credenciais do Google.",
+        )
+
+
 class GoogleDriveNotConfiguredError(AppException):
     def __init__(self) -> None:
         super().__init__(
