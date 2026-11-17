@@ -1,3 +1,5 @@
+import bleach
+
 from app.modules.articles.model import Article, ArticleStatus
 from app.modules.articles.repository import ArticleRepository
 from app.modules.articles.schema import ArticleCreate, ArticleUpdate
@@ -5,6 +7,16 @@ from app.modules.users.model import User
 from app.shared.db.uow import unit_of_work
 from app.shared.exceptions import ArticleNotFoundError
 from app.shared.service.helpers import get_or_raise
+
+ALLOWED_TAGS = [
+    "p", "br", "strong", "em", "u", "s", "h1", "h2", "h3", "ul", "ol", "li",
+    "a", "img", "blockquote", "code", "pre", "span",
+]
+ALLOWED_ATTRS = {"a": ["href", "title"], "img": ["src", "alt"], "*": ["class"]}
+
+
+def sanitize_content(content: str) -> str:
+    return bleach.clean(content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS)
 
 
 class ArticleService:
@@ -15,7 +27,7 @@ class ArticleService:
         with unit_of_work(self.repository.db):
             return self.repository.create(
                 title=payload.title,
-                content=payload.content,
+                content=sanitize_content(payload.content),
                 category=payload.category,
                 author_id=author.id,
                 cover_image_url=payload.cover_image_url,
@@ -29,6 +41,8 @@ class ArticleService:
             lambda: self.repository.get_by_id(article_id), ArticleNotFoundError
         )
         data = payload.model_dump(exclude_unset=True)
+        if "content" in data:
+            data["content"] = sanitize_content(data["content"])
         with unit_of_work(self.repository.db):
             return self.repository.update(article, data)
 
