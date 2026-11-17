@@ -15,6 +15,7 @@ from app.modules.email.branding import StaticBrandingProvider
 from app.modules.email.fake_service import FakeEmailService
 from app.modules.email.renderer import EmailRenderer
 from app.modules.email.sender import TemplatedEmailSender
+from app.modules.permissions.model import Permission
 from app.modules.users.model import User
 from app.shared.exceptions import (
     ExpiredResetTokenError,
@@ -37,7 +38,7 @@ def make_user(**kwargs) -> User:
         "role": Role.USER,
         "status": UserStatus.ACTIVE,
         "is_active": True,
-        "can_view_payments": False,
+        "permissions": [],
         "reset_token_hash": None,
         "reset_token_expires_at": None,
     }
@@ -150,18 +151,20 @@ class TestLogin:
         )
         assert payload["role"] == "ADMIN"
 
-    def test_token_contains_can_view_payments(self, service, repo):
+    def test_token_contains_permissions(self, service, repo):
         from app.config.settings import get_settings
 
         settings = get_settings()
-        repo.get_by_email.return_value = make_user(can_view_payments=True)
+        repo.get_by_email.return_value = make_user(
+            permissions=[Permission(key="clientes"), Permission(key="pagamentos")]
+        )
 
         result = service.login(make_login_payload())
 
         payload = jwt.decode(
             result.access_token, settings.jwt_secret_key, algorithms=["HS256"]
         )
-        assert payload["can_view_payments"] is True
+        assert payload["permissions"] == ["clientes", "pagamentos"]
 
     def test_token_contains_expiry(self, service, repo):
         from app.config.settings import get_settings

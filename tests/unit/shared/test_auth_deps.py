@@ -3,14 +3,16 @@ from unittest.mock import MagicMock, patch
 import jwt
 import pytest
 
+from app.modules.permissions.model import Permission
 from app.modules.users.model import User
 from app.shared.deps.auth import (
     get_current_user,
     require_admin,
-    require_payments_view,
+    require_any_permission,
+    require_permission,
 )
 from app.shared.exceptions import ForbiddenError, UnauthorizedError
-from app.shared.types import Role
+from app.shared.types import PermissionKey, Role
 
 
 def make_credentials(token: str) -> MagicMock:
@@ -20,7 +22,7 @@ def make_credentials(token: str) -> MagicMock:
 
 
 def make_user(**kwargs) -> User:
-    defaults = {"id": 1, "role": Role.USER, "is_active": True}
+    defaults = {"id": 1, "role": Role.USER, "is_active": True, "permissions": []}
     defaults.update(kwargs)
     user = MagicMock(spec=User)
     for key, value in defaults.items():
@@ -123,21 +125,47 @@ class TestRequireAdmin:
         assert result is admin
 
 
-class TestRequirePaymentsView:
-    def test_returns_user_when_role_is_admin(self):
-        admin = make_user(role=Role.ADMIN, can_view_payments=False)
+class TestRequirePermission:
+    def test_admin_bypasses_permissions(self):
+        admin = make_user(role=Role.ADMIN)
+        assert require_permission(PermissionKey.PAGAMENTOS)(admin) is admin
 
-        result = require_payments_view(admin)
+    def test_user_with_key_passes(self):
+        user = make_user(permissions=[Permission(key="pagamentos")])
+        assert require_permission(PermissionKey.PAGAMENTOS)(user) is user
 
-        assert result is admin
-
-    def test_returns_user_when_user_has_permission(self):
-        user = make_user(role=Role.USER, can_view_payments=True)
-
-        result = require_payments_view(user)
-
-        assert result is user
-
-    def test_raises_when_user_lacks_permission(self):
+    def test_user_without_key_gets_forbidden(self):
+        user = make_user(permissions=[Permission(key="artigos")])
         with pytest.raises(ForbiddenError):
-            require_payments_view(make_user(role=Role.USER, can_view_payments=False))
+            require_permission(PermissionKey.PAGAMENTOS)(user)
+
+
+class TestRequireAnyPermission:
+    def test_admin_bypasses_permissions(self):
+        admin = make_user(role=Role.ADMIN)
+        assert (
+            require_any_permission(PermissionKey.CLIENTES, PermissionKey.PROCESSOS)(
+                admin
+            )
+            is admin
+        )
+
+    def test_user_with_one_of_keys_passes(self):
+        user = make_user(permissions=[Permission(key="processos")])
+        assert (
+            require_any_permission(PermissionKey.CLIENTES, PermissionKey.PROCESSOS)(
+                user
+            )
+            is user
+        )
+
+    def test_user_without_any_key_gets_forbidden(self):
+        user = make_user(permissions=[Permission(key="artigos")])
+        with pytest.raises(ForbiddenError):
+            require_any_permission(PermissionKey.CLIENTES, PermissionKey.PROCESSOS)(
+                user
+            )
+
+    def test_requires_at_least_one_key(self):
+        with pytest.raises(ValueError):
+            require_any_permission()

@@ -15,13 +15,19 @@ from app.modules.tasks.schema import (
 )
 from app.modules.tasks.service import TaskService
 from app.modules.users.model import User
-from app.shared.deps.auth import get_current_user
+from app.shared.deps.auth import require_any_permission, require_permission
 from app.shared.http.responses import (
     PaginatedResponse,
     SuccessResponse,
     error_responses,
     ok,
     paginated,
+)
+from app.shared.types import PermissionKey
+
+# A tela de Processos lista, cria, edita e exclui as tarefas do processo (D6).
+_tasks_or_processes = require_any_permission(
+    PermissionKey.TAREFAS, PermissionKey.PROCESSOS
 )
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -37,7 +43,7 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 def create_task(
     payload: TaskCreate,
     service: TaskService = Depends(get_task_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(_tasks_or_processes),
 ) -> SuccessResponse[TaskRead]:
     task = service.create_task(payload, created_by=current_user)
     return ok(TaskRead.model_validate(task))
@@ -60,7 +66,7 @@ def list_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: TaskService = Depends(get_task_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(_tasks_or_processes),
 ) -> PaginatedResponse[TaskRead]:
     items, total = service.list_tasks(
         assigned_to=assigned_to,
@@ -93,7 +99,7 @@ def get_kanban(
     process_id: int | None = Query(None),
     service: TaskService = Depends(get_task_service),
     settings: Settings = Depends(get_settings),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.TAREFAS)),
 ) -> SuccessResponse[KanbanRead]:
     grouped = service.get_kanban_view(
         assigned_to=assigned_to,
@@ -121,7 +127,7 @@ def get_kanban(
 def get_task(
     task_id: int,
     service: TaskService = Depends(get_task_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_permission(PermissionKey.TAREFAS)),
 ) -> SuccessResponse[TaskRead]:
     task = service.get_task(task_id)
     return ok(TaskRead.model_validate(task))
@@ -137,7 +143,7 @@ def update_task(
     task_id: int,
     payload: TaskUpdate,
     service: TaskService = Depends(get_task_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(_tasks_or_processes),
 ) -> SuccessResponse[TaskRead]:
     task = service.update_task(task_id, payload, updated_by=current_user)
     return ok(TaskRead.model_validate(task))
@@ -153,7 +159,7 @@ def move_task(
     task_id: int,
     payload: TaskMove,
     service: TaskService = Depends(get_task_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(PermissionKey.TAREFAS)),
 ) -> SuccessResponse[TaskRead]:
     task = service.move_task(task_id, payload, updated_by=current_user)
     return ok(TaskRead.model_validate(task))
@@ -168,6 +174,6 @@ def move_task(
 def delete_task(
     task_id: int,
     service: TaskService = Depends(get_task_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(_tasks_or_processes),
 ) -> None:
     service.delete_task(task_id, current_user=current_user)

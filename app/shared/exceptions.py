@@ -424,10 +424,19 @@ class ThemeLimitExceededError(AppException):
         )
 
 
+class PredefinedThemeCannotBeUpdatedError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status.HTTP_403_FORBIDDEN,
+            "PREDEFINED_THEME_UPDATE_NOT_ALLOWED",
+            "Temas pré-definidos não podem ser sobrescritos. Crie uma cópia personalizada.",
+        )
+
+
 class PredefinedThemeCannotBeDeletedError(AppException):
     def __init__(self) -> None:
         super().__init__(
-            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_403_FORBIDDEN,
             "PREDEFINED_THEME_DELETE_NOT_ALLOWED",
             "Temas pré-definidos do sistema não podem ser excluídos.",
         )

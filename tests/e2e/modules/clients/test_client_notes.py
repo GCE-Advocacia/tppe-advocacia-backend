@@ -36,7 +36,7 @@ def test_client(db_session: Session, created_client_ids):
 
 
 @pytest.fixture
-def second_user(db_session: Session):
+def second_user(db_session: Session, grant_permissions):
     password = "Valid@1234"
     user = UserRepository(db_session).create(
         name="Second User",
@@ -44,7 +44,7 @@ def second_user(db_session: Session):
         hashed_password=_hash(password),
         role=Role.USER,
     )
-    db_session.commit()
+    grant_permissions(user.id, ["clientes"])
     yield {"id": user.id, "email": user.email, "password": password}
     db_session.execute(delete(User).where(User.id == user.id))
     db_session.commit()

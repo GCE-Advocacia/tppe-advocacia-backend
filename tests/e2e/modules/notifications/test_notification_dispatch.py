@@ -24,7 +24,7 @@ def _hash(password: str) -> str:
 
 
 @pytest.fixture
-def other_user(db_session: Session):
+def other_user(db_session: Session, grant_permissions):
     password = "Valid@1234"
     user = UserRepository(db_session).create(
         name="Other Lawyer",
@@ -32,7 +32,7 @@ def other_user(db_session: Session):
         hashed_password=_hash(password),
         role=Role.USER,
     )
-    db_session.commit()
+    grant_permissions(user.id, ["processos"])
     yield {"id": user.id, "email": user.email, "password": password}
     db_session.rollback()
     db_session.execute(delete(User).where(User.id == user.id))

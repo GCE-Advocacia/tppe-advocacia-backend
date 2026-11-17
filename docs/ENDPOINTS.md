@@ -32,7 +32,7 @@ Verifica a saúde da API e a conectividade com o banco de dados.
 
 Lista leads com filtros opcionais e paginação.
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `leads`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 **Query params**
@@ -76,7 +76,7 @@ Lista leads com filtros opcionais e paginação.
 | Status | Code           | Situação                        |
 | ------ | -------------- | ------------------------------- |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido       |
-| 403    | `FORBIDDEN`    | Usuário autenticado não é ADMIN |
+| 403    | `FORBIDDEN`    | `USER` sem permissão `leads` |
 
 ---
 
@@ -133,7 +133,7 @@ Atualiza o status ou o responsável de um lead. Todos os campos são opcionais.
 
 > Quando `assigned_to` muda para um novo responsável diferente do próprio usuário que faz a chamada, é disparada notificação `LEAD_ASSIGNED` (ver seção [Notifications](#notifications) — respeita preferência do destinatário; falha de e-mail não bloqueia a operação).
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `leads`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 **Body**
@@ -172,7 +172,7 @@ Atualiza o status ou o responsável de um lead. Todos os campos são opcionais.
 | Status | Code               | Situação                        |
 | ------ | ------------------ | ------------------------------- |
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido       |
-| 403    | `FORBIDDEN`        | Usuário autenticado não é ADMIN |
+| 403    | `FORBIDDEN`        | `USER` sem permissão `leads` |
 | 404    | `LEAD_NOT_FOUND`   | Lead não encontrado             |
 | 422    | `VALIDATION_ERROR` | Body inválido                   |
 
@@ -205,7 +205,7 @@ Autentica um usuário com e-mail e senha e retorna um JWT de acesso.
 }
 ```
 
-O payload do JWT contém as claims `sub` (ID do usuário), `role`, `can_view_payments` (permissão de visualizar vencimentos, ver [Payments](#payments)) e `exp`. A claim serve apenas para a UI; o backend sempre reconsulta o usuário no banco a cada requisição.
+O payload do JWT contém as claims `sub` (ID do usuário), `role`, `permissions` (lista das chaves das abas liberadas, ordenadas pelo menu) e `exp`. A claim serve apenas para a UI; o backend relê as permissões no banco a cada requisição. `ADMIN` acessa tudo mesmo com `permissions: []`.
 
 **Erros**
 
@@ -291,9 +291,60 @@ Confirma a redefinição de senha usando o token recebido por e-mail. O token é
 
 ---
 
+## Permissões por aba
+
+`ADMIN` acessa todas as áreas. `USER` acessa somente as abas concedidas pelo administrador; usuário novo começa sem permissões. A permissão libera a aba inteira (leitura, criação, edição e exclusão), com exceção de anonimizar cliente (`DELETE /clients/{id}`), gerenciar usuários e permissões e consultar auditoria, que continuam exclusivos de `ADMIN`. A revogação vale na requisição seguinte mesmo com o mesmo token. Sem acesso, a API retorna `403` com `{"success":false,"error":{"code":"FORBIDDEN","message":"Insufficient permissions"}}`.
+
+| Chave | Aba | Rotas principais |
+| --- | --- | --- |
+| `landing_page` | Landing Page | Escritas de `/office-config` (configuração, temas e logo) |
+| `artigos` | Artigos | Escritas de `/articles`, `/articles/admin`, `/articles/{id}/preview` |
+| `leads` | Leads | `GET /leads`, `PATCH /leads/{id}` |
+| `clientes` | Clientes | `/clients/*`, exceto anonimização |
+| `agenda` | Agenda | `/appointments/*`, `/integrations/google/*` (exceto callback OAuth) |
+| `pagamentos` | Pagamentos | `/payments/*`, inclusive lembretes |
+| `processos` | Processos | `/processes/*`, `/clients/{id}/processes`, `/deadlines/{id}`, documentos, prazos e sincronização DataJud de um processo |
+| `tarefas` | Tarefas | `/tasks/*` |
+| `notificacoes` | Notificações | `/notifications/preferences` |
+| `logs_api` | Logs DataJud | `/external-api-logs`, `POST /datajud/sync-active-processes` |
+| `feriados` | Feriados | Escritas de `/forensic-holidays` |
+| `financeiro` | Financeiro | `/finance/*` |
+
+Seletores compartilhados aceitam **qualquer** chave indicada abaixo, sem liberar a outra aba:
+
+| Rota | Chaves aceitas |
+| --- | --- |
+| `GET /clients` | `clientes`, `agenda`, `pagamentos`, `processos`, `tarefas` |
+| `GET /processes` | `processos`, `clientes`, `agenda`, `tarefas` |
+| `GET /users` | `leads`, `tarefas`, `processos` |
+| `GET /forensic-holidays` | `feriados`, `agenda` |
+| `POST /deadlines/calculate` | `agenda`, `processos` |
+| `GET/POST /tasks`, `PATCH/DELETE /tasks/{id}` | `tarefas`, `processos` |
+| `POST /media/upload` | `artigos`, `landing_page` |
+| `GET /clients/{id}/processes` | `processos`, `clientes` |
+
+Continuam públicos: login, reset de senha, health, `POST /leads`, leituras publicadas de `/articles`, `GET /office-config` e temas, leitura de mídia e callback do Google. Outros endpoints exigem autenticação e a chave correspondente.
+
+### `GET /api/v1/permissions`
+
+Lista o catálogo de 12 permissões em ordem de `sort_order`. Exclusivo de `ADMIN`; usado pela tela de Usuários para montar as checkboxes. `Usuários` e auditoria não fazem parte do catálogo.
+
+```json
+{
+  "success": true,
+  "data": [
+    {"key": "landing_page", "name": "Landing Page", "description": "Editar a landing page, temas e logos", "sort_order": 1}
+  ]
+}
+```
+
+Resposta `403 FORBIDDEN` para `USER`, `401 UNAUTHORIZED` sem token.
+
+---
+
 ## Users
 
-> Todos os endpoints abaixo exigem autenticação com role `ADMIN`.
+> `POST /users`, `GET/PATCH /users/{id}` exigem `ADMIN`. `GET /users` também aceita `USER` com `leads`, `tarefas` ou `processos` para seletores de responsáveis. Apenas `ADMIN` pode criar usuários, alterar papéis e atribuir permissões.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 ---
@@ -301,6 +352,8 @@ Confirma a redefinição de senha usando o token recebido por e-mail. O token é
 ### `GET /api/v1/users`
 
 Lista usuários com filtros opcionais e paginação.
+
+> Exige `ADMIN` ou permissão `leads`, `tarefas` ou `processos`.
 
 **Query params**
 
@@ -323,7 +376,7 @@ Lista usuários com filtros opcionais e paginação.
       "email": "ana@escritorio.com",
       "role": "ADMIN",
       "is_active": true,
-      "can_view_payments": false,
+      "permissions": [],
       "created_at": "2026-05-06T12:00:00Z",
       "updated_at": "2026-05-06T12:00:00Z"
     }
@@ -342,13 +395,13 @@ Lista usuários com filtros opcionais e paginação.
 | Status | Code           | Situação                        |
 | ------ | -------------- | ------------------------------- |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido       |
-| 403    | `FORBIDDEN`    | Usuário autenticado não é ADMIN |
+| 403    | `FORBIDDEN`    | `USER` sem `leads`, `tarefas` nem `processos` |
 
 ---
 
 ### `POST /api/v1/users`
 
-Cria um novo usuário com papel `USER` e status `INVITED`, sem senha. O sistema envia um e-mail de convite com um link de uso único (`/convite/{token}`) que expira em `INVITE_EXPIRE_HOURS` (padrão 48 h); o usuário define a própria senha por ele. Se o e-mail falhar, o usuário é criado do mesmo jeito e o convite fica pendente para reenvio. Para promover a `ADMIN`, use `PATCH /api/v1/users/{id}` após a criação.
+Cria um novo usuário com papel `USER` e status `INVITED`, sem senha. O sistema envia um e-mail de convite com um link de uso único (`/convite/{token}`) que expira em `INVITE_EXPIRE_HOURS` (padrão 48 h); o usuário define a própria senha por ele. Se o e-mail falhar, o usuário é criado do mesmo jeito e o convite fica pendente para reenvio. A lista opcional `permissions` define as abas já na criação (default `[]`); para promover a `ADMIN`, use `PATCH /api/v1/users/{id}` após a criação.
 
 As respostas de usuário trazem `status` (`INVITED` | `ACTIVE`) e `invite` (último convite: `status` `PENDING` | `EXPIRED` | `USED` | `CANCELLED`, `sent_at`, `expires_at`; `null` se nunca houve convite).
 
@@ -357,8 +410,11 @@ As respostas de usuário trazem `status` (`INVITED` | `ACTIVE`) e `invite` (últ
 ```json
 {
   "name": "Carlos Souza",
-  "email": "carlos@escritorio.com"
+  "email": "carlos@escritorio.com",
+  "permissions": ["clientes", "pagamentos"]
 }
+
+```
 
 **Resposta 201**
 
@@ -371,7 +427,7 @@ As respostas de usuário trazem `status` (`INVITED` | `ACTIVE`) e `invite` (últ
     "email": "carlos@escritorio.com",
     "role": "USER",
     "is_active": true,
-    "can_view_payments": false,
+    "permissions": ["clientes", "pagamentos"],
     "created_at": "2026-05-06T12:00:00Z",
     "updated_at": "2026-05-06T12:00:00Z"
   }
@@ -385,7 +441,7 @@ As respostas de usuário trazem `status` (`INVITED` | `ACTIVE`) e `invite` (últ
 | 401    | `UNAUTHORIZED`         | Token ausente ou inválido       |
 | 403    | `FORBIDDEN`            | Usuário autenticado não é ADMIN |
 | 409    | `EMAIL_ALREADY_EXISTS` | E-mail já cadastrado            |
-| 422    | `VALIDATION_ERROR`     | Body inválido                   |
+| 422    | `VALIDATION_ERROR`     | Body inválido ou chave de permissão desconhecida |
 
 ---
 
@@ -445,7 +501,7 @@ Retorna os dados de um usuário específico.
     "email": "carlos@escritorio.com",
     "role": "USER",
     "is_active": true,
-    "can_view_payments": false,
+    "permissions": ["clientes", "pagamentos"],
     "created_at": "2026-05-06T12:00:00Z",
     "updated_at": "2026-05-06T12:00:00Z"
   }
@@ -465,7 +521,7 @@ Retorna os dados de um usuário específico.
 ### `PATCH /api/v1/users/{id}`
 
 Atualiza parcialmente os dados de um usuário. Todos os campos são opcionais.
-Usado também para **desativar** (`is_active: false`), **alterar o papel** (`role`) e **conceder/revogar a visualização de vencimentos** (`can_view_payments`) para usuários `USER`. Alterações em `can_view_payments` geram log de auditoria `USER_UPDATED` e passam a valer na próxima requisição do usuário, sem novo login.
+Usado também para **desativar** (`is_active: false`), **alterar o papel** (`role`) e **substituir todo o conjunto de permissões** (`permissions: [...]`, ou `[]` para revogar tudo). Chaves desconhecidas retornam `422 VALIDATION_ERROR`. Alterações em `permissions` geram log `USER_UPDATED` e passam a valer na próxima requisição, sem novo login.
 
 **Body**
 
@@ -475,7 +531,7 @@ Usado também para **desativar** (`is_active: false`), **alterar o papel** (`rol
   "email": "novo@escritorio.com",
   "role": "ADMIN",
   "is_active": false,
-  "can_view_payments": true
+  "permissions": ["processos", "tarefas"]
 }
 ```
 
@@ -490,7 +546,7 @@ Usado também para **desativar** (`is_active: false`), **alterar o papel** (`rol
     "email": "novo@escritorio.com",
     "role": "ADMIN",
     "is_active": false,
-    "can_view_payments": true,
+    "permissions": ["processos", "tarefas"],
     "created_at": "2026-05-06T12:00:00Z",
     "updated_at": "2026-05-06T13:00:00Z"
   }
@@ -501,7 +557,7 @@ Usado também para **desativar** (`is_active: false`), **alterar o papel** (`rol
 
 ## Media
 
-> Upload exige autenticação (qualquer role).
+> Upload exige `ADMIN` ou permissão `artigos` ou `landing_page`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 ### `POST /api/v1/media/upload`
@@ -623,7 +679,7 @@ Lista logs de auditoria com filtros opcionais e paginação.
 
 ## External API Logs
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `logs_api`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 ### `GET /api/v1/external-api-logs`
@@ -677,7 +733,7 @@ Lista logs de chamadas a APIs externas, incluindo sucesso/falha do DataJud.
 | Status | Code           | Situação                        |
 | ------ | -------------- | ------------------------------- |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido       |
-| 403    | `FORBIDDEN`    | Usuário autenticado não é ADMIN |
+| 403    | `FORBIDDEN`    | `USER` sem permissão `logs_api` |
 
 ---
 
@@ -724,7 +780,7 @@ Retorna a configuração atual do escritório. Público — não exige autentica
 
 Atualiza parcialmente a configuração do escritório. Todos os campos são opcionais.
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `landing_page`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 **Body**
@@ -772,7 +828,7 @@ Atualiza parcialmente a configuração do escritório. Todos os campos são opci
 | Status | Code           | Situação                        |
 | ------ | -------------- | ------------------------------- |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido       |
-| 403    | `FORBIDDEN`    | Usuário autenticado não é ADMIN |
+| 403    | `FORBIDDEN`    | `USER` sem permissão `landing_page` |
 
 ---
 
@@ -1032,7 +1088,7 @@ Lista todos os artigos incluindo rascunhos, com paginação. URLs dos itens apon
 
 ## Clients
 
-> Todos os endpoints exigem autenticação (qualquer role).
+> Rotas de Clientes exigem `clientes`; `GET /clients` aceita também `agenda`, `pagamentos`, `processos` ou `tarefas`. Anonimização permanece exclusiva de `ADMIN`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 ---
@@ -1491,7 +1547,7 @@ Retorna visão 360º do cliente: dados do cliente, notas recentes, processos vin
 
 ## Processes
 
-> Todos os endpoints exigem autenticação (qualquer role).
+> Rotas de Processos exigem `processos`; `GET /processes` também aceita `clientes`, `agenda` ou `tarefas`, e `GET /clients/{id}/processes` aceita `clientes`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 O campo `number` segue o padrão CNJ. Aceita tanto a forma mascarada (`NNNNNNN-DD.AAAA.J.TR.OOOO`) quanto apenas 20 dígitos no envio. Persistido como dígitos puros, retornado sempre mascarado.
@@ -1835,7 +1891,7 @@ Sincroniza movimentações do processo com a API pública do DataJud. As movimen
 
 Sincroniza em lote processos com `status = ATIVO`. Quando `tribunal_alias` é omitido, somente processos ativos com `tribunal_alias` salvo são varridos.
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `logs_api`.
 
 **Body**
 
@@ -1870,7 +1926,7 @@ Sincroniza em lote processos com `status = ATIVO`. Quando `tribunal_alias` é om
 | Status | Code                  | Situação                        |
 | ------ | --------------------- | ------------------------------- |
 | 401    | `UNAUTHORIZED`        | Token ausente ou inválido       |
-| 403    | `FORBIDDEN`           | Usuário autenticado não é ADMIN |
+| 403    | `FORBIDDEN`           | `USER` sem permissão `logs_api` |
 | 422    | `VALIDATION_ERROR`    | Body inválido                   |
 | 502    | `DATAJUD_UNAVAILABLE` | Falha geral na chamada DataJud  |
 
@@ -2111,7 +2167,7 @@ Exclui o documento e o arquivo. Permitido apenas para quem enviou o documento ou
 
 ## Notifications
 
-> Todos os endpoints exigem autenticação (qualquer role).
+> Exige `ADMIN` ou permissão `notificacoes`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Tipos de evento suportados: `PROCESS_MOVEMENT_CREATED`, `PROCESS_STATUS_CHANGED`, `LEAD_ASSIGNED`, `TASK_ASSIGNED`, `DEADLINE_APPROACHING`, `DEADLINE_EXPIRED`, `EXTERNAL_API_FAILURE`.
@@ -2260,7 +2316,7 @@ Edita o conteúdo de uma anotação. Apenas o autor original pode editar; usuár
 
 ## Tasks
 
-> Todos os endpoints exigem autenticação (qualquer role).
+> Exige `tarefas`; lista, criação, edição e exclusão de tarefas também aceitam `processos` para uso dentro da tela de Processos.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Cada tarefa pertence a uma coluna (`status`) e possui um `order` inteiro que determina a posição na coluna do Kanban. A reordenação é atômica: ao mover ou alterar o `status`, o backend renumera as tarefas afetadas em uma única transação para manter a sequência sem buracos.
@@ -2631,7 +2687,7 @@ Sem corpo.
 
 ## Forensic Holidays
 
-> `GET` exige autenticação (qualquer role). `POST/PATCH/DELETE` exigem role `ADMIN`.
+> `GET` exige `feriados` ou `agenda`; `POST/PATCH/DELETE` exigem `feriados`. `ADMIN` acessa tudo.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Tabela de feriados forenses usada pelo módulo `deadlines` no cálculo de prazos. Cada feriado tem um `scope`:
@@ -2683,7 +2739,7 @@ Lista feriados com filtros opcionais. Quando `court` ou `comarca` são informado
 
 ### `POST /api/v1/forensic-holidays`
 
-Cria um novo feriado. Admin only.
+Cria um novo feriado. Exige `feriados` ou `ADMIN`.
 
 **Body**
 
@@ -2703,7 +2759,7 @@ Cria um novo feriado. Admin only.
 | Status | Code                          | Situação                                                                                |
 | ------ | ----------------------------- | --------------------------------------------------------------------------------------- |
 | 401    | `UNAUTHORIZED`                | Token ausente ou inválido                                                               |
-| 403    | `FORBIDDEN`                   | Usuário não é ADMIN                                                                     |
+| 403    | `FORBIDDEN`                   | `USER` sem permissão `feriados` |
 | 422    | `INVALID_HOLIDAY_SCOPE`       | Combinação inválida de `scope`/`court`/`comarca`                                        |
 | 422    | `VALIDATION_ERROR`            | Body inválido                                                                           |
 
@@ -2711,14 +2767,14 @@ Cria um novo feriado. Admin only.
 
 ### `PATCH /api/v1/forensic-holidays/{holiday_id}`
 
-Atualiza parcialmente um feriado. Admin only. Para limpar `court`/`comarca`, enviar `null` explicitamente.
+Atualiza parcialmente um feriado. Exige `feriados` ou `ADMIN`. Para limpar `court`/`comarca`, enviar `null` explicitamente.
 
 **Erros**
 
 | Status | Code                          | Situação                                  |
 | ------ | ----------------------------- | ----------------------------------------- |
 | 401    | `UNAUTHORIZED`                | Token ausente ou inválido                 |
-| 403    | `FORBIDDEN`                   | Usuário não é ADMIN                       |
+| 403    | `FORBIDDEN`                   | `USER` sem permissão `feriados` |
 | 404    | `FORENSIC_HOLIDAY_NOT_FOUND`  | Feriado não encontrado                    |
 | 422    | `INVALID_HOLIDAY_SCOPE`       | Estado resultante viola regras de scope   |
 
@@ -2726,13 +2782,13 @@ Atualiza parcialmente um feriado. Admin only. Para limpar `court`/`comarca`, env
 
 ### `DELETE /api/v1/forensic-holidays/{holiday_id}`
 
-Remove um feriado. Admin only. Retorna 204 sem corpo.
+Remove um feriado. Exige `feriados` ou `ADMIN`. Retorna 204 sem corpo.
 
 ---
 
 ## Deadlines
 
-> Todos os endpoints exigem autenticação (qualquer role).
+> Cálculo isolado exige `agenda` ou `processos`; rotas de prazos vinculados a processos exigem `processos`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Calcula e persiste prazos processuais em dias úteis, pulando finais de semana e feriados aplicáveis (NATIONAL + COURT do processo + COMARCA do prazo). O `court` é snapshot do `Process` no momento da criação; `comarca` é snapshot do que foi enviado no body. Mudanças futuras em `Process` não afetam prazos antigos.
@@ -2965,7 +3021,7 @@ Lista o histórico de alertas já disparados para um prazo. Acessível apenas ao
 
 ## Appointments
 
-> Todos os endpoints exigem autenticação (qualquer role).
+> Exige `ADMIN` ou permissão `agenda`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Agenda pessoal de compromissos. Cada compromisso pertence ao usuário que o criou (`created_by`). O dono acessa os seus; usuários com role `ADMIN` podem ver/editar/excluir qualquer compromisso. A listagem retorna apenas os compromissos do usuário autenticado.
@@ -3220,7 +3276,7 @@ Sincronização retroativa: envia ao Google Calendar os compromissos **futuros**
 
 ## Finance
 
-> Todos os endpoints exigem role `ADMIN`.
+> Exige `ADMIN` ou permissão `financeiro`.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Lançamentos financeiros do escritório. Entradas (`INCOME`) e saídas (`EXPENSE`) ficam na mesma tabela, diferenciadas por `type`.
@@ -3269,7 +3325,7 @@ Registra uma entrada financeira.
 | Status | Code               | Situação                                                                 |
 | ------ | ------------------ | ------------------------------------------------------------------------ |
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                                |
-| 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                                                    |
+| 403    | `FORBIDDEN`        | `USER` sem permissão `financeiro` |
 | 422    | `VALIDATION_ERROR` | `description` vazia, `amount` ≤ 0 ou com mais de 2 casas, data inválida  |
 
 ---
@@ -3311,7 +3367,7 @@ Registra uma saída financeira. Mesmo body e mesmas validações de `POST /api/v
 | Status | Code               | Situação                                                                 |
 | ------ | ------------------ | ------------------------------------------------------------------------ |
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                                |
-| 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                                                    |
+| 403    | `FORBIDDEN`        | `USER` sem permissão `financeiro` |
 | 422    | `VALIDATION_ERROR` | `description` vazia, `amount` ≤ 0 ou com mais de 2 casas, data inválida  |
 
 ---
@@ -3355,7 +3411,7 @@ Lista entradas e saídas com paginação e filtro opcional por período, ordenad
 | Status | Code                       | Situação                          |
 | ------ | -------------------------- | --------------------------------- |
 | 401    | `UNAUTHORIZED`             | Token ausente ou inválido         |
-| 403    | `FORBIDDEN`                | Usuário não é `ADMIN`             |
+| 403    | `FORBIDDEN`                | `USER` sem permissão `financeiro` |
 | 422    | `INVALID_FINANCIAL_PERIOD` | `date_from` posterior a `date_to` |
 | 422    | `VALIDATION_ERROR`         | Data em formato inválido          |
 
@@ -3394,7 +3450,7 @@ Resumo financeiro. Soma as entradas e as saídas (no período, se informado) e c
 | Status | Code                       | Situação                          |
 | ------ | -------------------------- | --------------------------------- |
 | 401    | `UNAUTHORIZED`             | Token ausente ou inválido         |
-| 403    | `FORBIDDEN`                | Usuário não é `ADMIN`             |
+| 403    | `FORBIDDEN`                | `USER` sem permissão `financeiro` |
 | 422    | `INVALID_FINANCIAL_PERIOD` | `date_from` posterior a `date_to` |
 | 422    | `VALIDATION_ERROR`         | Data em formato inválido          |
 
@@ -3402,29 +3458,29 @@ Resumo financeiro. Soma as entradas e as saídas (no período, se informado) e c
 
 ## Payments
 
-> `GET` exige role `ADMIN` **ou** usuário `USER` com `can_view_payments = true`. `POST/PATCH/DELETE` exigem role `ADMIN`.
+> Todas as rotas `/payments/*` exigem `ADMIN` ou permissão `pagamentos`, incluindo criação, edição, exclusão e lembretes.
 > Header obrigatório: `Authorization: Bearer <token>`
 
 Vencimentos (pagamentos previstos) dos clientes do escritório.
 
-- A permissão `can_view_payments` é concedida/revogada pelo ADMIN via `PATCH /api/v1/users/{id}` (default `false` para usuários novos e existentes)
+- `pagamentos` é concedida/revogada pelo `ADMIN` via `POST /api/v1/users` ou `PATCH /api/v1/users/{id}` (novos usuários começam sem permissões)
 - A permissão é lida do banco a cada requisição: revogar bloqueia o acesso imediatamente, sem precisar de novo login
 - Diferente dos demais módulos, as respostas de sucesso **não** usam o envelope `success`/`data`: o recurso é retornado diretamente
 - `amount` é decimal opcional (≥ 0) com até 2 casas e é retornado como string (ex.: `"1500.00"`)
 
 **Permissões**
 
-| Perfil                                  | `GET /payments`, `GET /payments/{id}` | `POST`, `PATCH`, `DELETE` |
-| --------------------------------------- | ------------------------------------- | ------------------------- |
-| `ADMIN`                                 | Permitido                             | Permitido                 |
-| `USER` com `can_view_payments = true`   | Permitido (somente leitura)           | 403 `FORBIDDEN`           |
-| `USER` com `can_view_payments = false`  | 403 `FORBIDDEN`                       | 403 `FORBIDDEN`           |
+| Perfil | Leituras (`GET`, inclusive lembretes) | Escritas (`POST`, `PATCH`, `DELETE`) |
+| --- | --- | --- |
+| `ADMIN` | Permitido | Permitido |
+| `USER` com `pagamentos` | Permitido | Permitido |
+| `USER` sem `pagamentos` | 403 `FORBIDDEN` | 403 `FORBIDDEN` |
 
 ---
 
 ### `POST /api/v1/payments`
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `pagamentos`.
 
 Cadastra um vencimento para um cliente.
 
@@ -3459,7 +3515,7 @@ Cadastra um vencimento para um cliente.
 | Status | Code               | Situação                                     |
 | ------ | ------------------ | -------------------------------------------- |
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido                    |
-| 403    | `FORBIDDEN`        | Usuário não é `ADMIN`                        |
+| 403    | `FORBIDDEN`        | `USER` sem permissão `pagamentos` |
 | 404    | —                  | Cliente não encontrado (`{"detail": "..."}`) |
 | 422    | `VALIDATION_ERROR` | Body inválido                                |
 
@@ -3467,7 +3523,7 @@ Cadastra um vencimento para um cliente.
 
 ### `GET /api/v1/payments`
 
-> Exige role `ADMIN` ou `USER` com `can_view_payments = true`.
+> Exige `ADMIN` ou permissão `pagamentos`.
 
 Lista os vencimentos de clientes não anonimizados, ordenados por `payment_date` crescente.
 
@@ -3501,13 +3557,13 @@ Lista os vencimentos de clientes não anonimizados, ordenados por `payment_date`
 | ------ | -------------- | ---------------------------------------------------------- |
 | 400    | —              | `start_date` posterior a `end_date` (`{"detail": "..."}`)  |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido                                  |
-| 403    | `FORBIDDEN`    | Usuário `USER` sem `can_view_payments`                     |
+| 403    | `FORBIDDEN`    | `USER` sem permissão `pagamentos` |
 
 ---
 
 ### `GET /api/v1/payments/{payment_id}`
 
-> Exige role `ADMIN` ou `USER` com `can_view_payments = true`.
+> Exige `ADMIN` ou permissão `pagamentos`.
 
 Retorna um vencimento específico (mesmo formato do item de `GET /api/v1/payments`).
 
@@ -3516,14 +3572,14 @@ Retorna um vencimento específico (mesmo formato do item de `GET /api/v1/payment
 | Status | Code           | Situação                                       |
 | ------ | -------------- | ---------------------------------------------- |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido                      |
-| 403    | `FORBIDDEN`    | Usuário `USER` sem `can_view_payments`         |
+| 403    | `FORBIDDEN`    | `USER` sem permissão `pagamentos` |
 | 404    | —              | Vencimento não encontrado (`{"detail": "..."}`) |
 
 ---
 
 ### `PATCH /api/v1/payments/{payment_id}`
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `pagamentos`.
 
 Atualiza parcialmente um vencimento. Todos os campos do body de criação são opcionais. Retorna o vencimento atualizado (200).
 
@@ -3532,7 +3588,7 @@ Atualiza parcialmente um vencimento. Todos os campos do body de criação são o
 | Status | Code               | Situação                                                   |
 | ------ | ------------------ | ---------------------------------------------------------- |
 | 401    | `UNAUTHORIZED`     | Token ausente ou inválido                                  |
-| 403    | `FORBIDDEN`        | Usuário não é `ADMIN` (mesmo com `can_view_payments`)      |
+| 403    | `FORBIDDEN`        | `USER` sem permissão `pagamentos` |
 | 404    | —                  | Vencimento ou cliente não encontrado (`{"detail": "..."}`) |
 | 422    | `VALIDATION_ERROR` | Body inválido                                              |
 
@@ -3540,7 +3596,7 @@ Atualiza parcialmente um vencimento. Todos os campos do body de criação são o
 
 ### `DELETE /api/v1/payments/{payment_id}`
 
-> Exige autenticação com role `ADMIN`.
+> Exige `ADMIN` ou permissão `pagamentos`.
 
 Remove um vencimento. Resposta `204` sem corpo.
 
@@ -3549,5 +3605,5 @@ Remove um vencimento. Resposta `204` sem corpo.
 | Status | Code           | Situação                                              |
 | ------ | -------------- | ----------------------------------------------------- |
 | 401    | `UNAUTHORIZED` | Token ausente ou inválido                             |
-| 403    | `FORBIDDEN`    | Usuário não é `ADMIN` (mesmo com `can_view_payments`) |
+| 403    | `FORBIDDEN`    | `USER` sem permissão `pagamentos` |
 | 404    | —              | Vencimento não encontrado (`{"detail": "..."}`)       |

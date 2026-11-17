@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.modules.email_outbox.model import EmailStatus
+from app.modules.permissions.model import Permission
 from app.shared.security.password import NewPassword
-from app.shared.types import Role, UserStatus
+from app.shared.types import PermissionKey, Role, UserStatus
 
 InviteStatus = Literal["PENDING", "EXPIRED", "USED", "CANCELLED"]
 
@@ -13,6 +14,7 @@ InviteStatus = Literal["PENDING", "EXPIRED", "USED", "CANCELLED"]
 class UserCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
+    permissions: list[PermissionKey] = Field(default_factory=list)
 
 
 class UserUpdate(BaseModel):
@@ -20,7 +22,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     role: Role | None = None
     is_active: bool | None = None
-    can_view_payments: bool | None = None
+    permissions: list[PermissionKey] | None = None
 
 
 class InviteSummary(BaseModel):
@@ -45,7 +47,7 @@ class UserRead(BaseModel):
     role: Role
     status: UserStatus
     is_active: bool
-    can_view_payments: bool
+    permissions: list[str]
     created_by: int | None
     updated_by: int | None
     created_at: datetime
@@ -53,6 +55,11 @@ class UserRead(BaseModel):
     invite: InviteSummary | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def keys_from_permissions(cls, permissions: list[Permission | str]) -> list[str]:
+        return [p.key if isinstance(p, Permission) else p for p in permissions]
 
 
 class InvitePublicRead(BaseModel):

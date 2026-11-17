@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 
 from app.modules.audit_logs.service import AuditLogService
+from app.modules.permissions.repository import PermissionRepository
 from app.modules.users.invite_model import UserInvite
 from app.modules.users.invite_service import InviteEmail, InviteService
 from app.modules.users.model import User
@@ -17,10 +18,12 @@ class UserService:
         repository: UserRepository,
         invites: InviteService,
         audit: AuditLogService,
+        permissions_repository: PermissionRepository,
     ) -> None:
         self.repository = repository
         self.invites = invites
         self.audit = audit
+        self.permissions_repository = permissions_repository
 
     def list_users(
         self,
@@ -61,6 +64,9 @@ class UserService:
                     created_by=created_by.id,
                     status=UserStatus.INVITED,
                 )
+                self.permissions_repository.replace_for_user(
+                    user.id, (key.value for key in payload.permissions)
+                )
                 self.invites.issue(user, created_by)
         except IntegrityError as exc:
             raise EmailAlreadyExistsError() from exc
@@ -74,6 +80,7 @@ class UserService:
             raise UserNotFoundError()
 
         updates = payload.model_dump(exclude_unset=True)
+        permissions = updates.pop("permissions", None)
         updates["updated_by"] = updated_by.id
 
         if "email" in updates and updates["email"] != user.email:
@@ -83,11 +90,15 @@ class UserService:
         is_deactivating = updates.get("is_active") is False and user.is_active is True
         with unit_of_work(self.repository.db):
             updated = self.repository.update(user, updates)
+            if permissions is not None:
+                self.permissions_repository.replace_for_user(
+                    user.id, (key.value for key in permissions)
+                )
 
         if is_deactivating:
             self.audit.log_user_deactivated(updated, updated_by)
-        elif {"name", "email", "role", "is_active", "can_view_payments"} & set(
-            updates.keys()
+        elif permissions is not None or (
+            {"name", "email", "role", "is_active"} & updates.keys()
         ):
             self.audit.log_user_updated(updated, updated_by)
 

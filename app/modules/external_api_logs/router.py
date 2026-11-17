@@ -7,8 +7,9 @@ from app.modules.external_api_logs.model import ExternalApiProvider, ExternalApi
 from app.modules.external_api_logs.schema import ExternalApiLogRead
 from app.modules.external_api_logs.service import ExternalApiLogService
 from app.modules.users.model import User
-from app.shared.deps.auth import require_admin
+from app.shared.deps.auth import require_permission
 from app.shared.http.responses import PaginatedResponse, error_responses, paginated
+from app.shared.types import PermissionKey
 
 router = APIRouter(prefix="/external-api-logs", tags=["External API Logs"])
 
@@ -28,7 +29,7 @@ def list_external_api_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service: ExternalApiLogService = Depends(get_external_api_log_service),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.LOGS_API)),
 ) -> PaginatedResponse[ExternalApiLogRead]:
     items, total = service.list_logs(
         provider=provider,

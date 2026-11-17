@@ -27,7 +27,7 @@ def issue_access_token(user: User) -> str:
     token_data = {
         "sub": str(user.id),
         "role": user.role.value,
-        "can_view_payments": user.can_view_payments,
+        "permissions": [permission.key for permission in user.permissions],
         "exp": expire,
     }
     return jwt.encode(token_data, settings.jwt_secret_key, algorithm="HS256")

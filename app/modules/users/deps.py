@@ -7,6 +7,7 @@ from app.modules.audit_logs.repository import AuditLogRepository
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.email_outbox.repository import EmailOutboxRepository
 from app.modules.email_outbox.service import EmailOutbox
+from app.modules.permissions.repository import PermissionRepository
 from app.modules.users.invite_repository import InviteRepository
 from app.modules.users.invite_service import InviteService
 from app.modules.users.repository import UserRepository
@@ -30,4 +31,5 @@ def get_user_service(
         UserRepository(db),
         invites,
         AuditLogService(AuditLogRepository(db)),
+        PermissionRepository(db),
     )

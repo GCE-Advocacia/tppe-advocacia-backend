@@ -13,7 +13,8 @@ from app.modules.payments.schema import (
 )
 from app.modules.payments.service import PaymentService
 from app.modules.users.model import User
-from app.shared.deps.auth import require_admin, require_payments_view
+from app.shared.deps.auth import require_permission
+from app.shared.types import PermissionKey
 
 router = APIRouter(
     prefix="/payments",
@@ -34,7 +35,7 @@ def get_payment_service(
 )
 def create_payment(
     payload: PaymentCreate,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.create(
@@ -61,7 +62,7 @@ def list_payments(
         alias="status",
         description="Filtra por status do pagamento.",
     ),
-    current_user: User = Depends(require_payments_view),
+    _: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.list(
@@ -91,7 +92,7 @@ def list_reminders(
         alias="status",
     ),
     kind: ReminderKind | None = Query(default=None),
-    current_user: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.list_reminders(
@@ -109,7 +110,7 @@ def list_reminders(
 )
 def get_payment(
     payment_id: int,
-    current_user: User = Depends(require_payments_view),
+    _: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.get_by_id(payment_id)
@@ -121,7 +122,7 @@ def get_payment(
 )
 def list_payment_reminders(
     payment_id: int,
-    current_user: User = Depends(require_payments_view),
+    _: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.list_payment_reminders(payment_id)
@@ -134,7 +135,7 @@ def list_payment_reminders(
 def update_payment(
     payment_id: int,
     payload: PaymentUpdate,
-    current_user: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     return service.update(
@@ -149,7 +150,7 @@ def update_payment(
 )
 def delete_payment(
     payment_id: int,
-    current_user: User = Depends(require_admin),
+    _: User = Depends(require_permission(PermissionKey.PAGAMENTOS)),
     service: PaymentService = Depends(get_payment_service),
 ):
     service.delete(payment_id)

@@ -5,11 +5,31 @@ from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
 
 class ListItem(BaseModel):
-    title: str = Field(max_length=200)
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=200)
     description: str = Field(max_length=1000)
 
+    @field_validator("title", mode="before")
+    @classmethod
+    def strip_title(cls, v: object) -> object:
+        if isinstance(v, str):
+            stripped = v.strip()
+            if not stripped:
+                raise ValueError("O título não pode ser vazio.")
+            return stripped
+        return v
 
-_ListField = Annotated[list[ListItem], Field(max_length=50)]
+
+_HexColor = Annotated[
+    str,
+    Field(pattern=r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", strict=True),
+]
+
+
+UpdateListItem = ListItem
+_DifferentialsField = Annotated[list[ListItem], Field(max_length=3)]
+_AreasField = Annotated[list[ListItem], Field(max_length=6)]
 _ButtonRadius = Annotated[
     str, Field(max_length=20, pattern=r"^(?:[0-9]|1[0-9]|2[0-4]|999)px$", strict=True)
 ]
@@ -45,8 +65,24 @@ class OfficeConfigUpdate(BaseModel):
     lawyer_image_url: AnyHttpUrl | None = Field(None, max_length=500)
     lawyer_image_position: str | None = Field(None, max_length=20)
 
-    differentials: _ListField | None = None
-    areas_of_practice: _ListField | None = None
+    differentials: _DifferentialsField | None = None
+    areas_of_practice: _AreasField | None = None
+
+    @field_validator(
+        "instagram_url",
+        "linkedin_url",
+        "whatsapp_url",
+        "website_url",
+        "hero_image_url",
+        "about_image_url",
+        "lawyer_image_url",
+        mode="before",
+    )
+    @classmethod
+    def empty_str_to_none(cls, v: object) -> object:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     color: str | None = Field(None, max_length=50)
     color_bg_primary: str | None = Field(None, max_length=50)
@@ -56,9 +92,9 @@ class OfficeConfigUpdate(BaseModel):
     color_buttons_hover: str | None = Field(None, max_length=50)
     color_buttons_text: str | None = Field(None, max_length=50)
     system_uses_landing_buttons: bool | None = None
-    color_buttons_system: str | None = Field(None, max_length=50)
-    color_buttons_system_hover: str | None = Field(None, max_length=50)
-    color_buttons_system_text: str | None = Field(None, max_length=50)
+    color_buttons_system: _HexColor | None = None
+    color_buttons_system_hover: _HexColor | None = None
+    color_buttons_system_text: _HexColor | None = None
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
@@ -152,9 +188,9 @@ class ThemeCreate(BaseModel):
     color_buttons_hover: str = Field(max_length=50)
     color_buttons_text: str = Field(max_length=50)
     system_uses_landing_buttons: bool = True
-    color_buttons_system: str | None = Field(None, max_length=50)
-    color_buttons_system_hover: str | None = Field(None, max_length=50)
-    color_buttons_system_text: str | None = Field(None, max_length=50)
+    color_buttons_system: _HexColor | None = None
+    color_buttons_system_hover: _HexColor | None = None
+    color_buttons_system_text: _HexColor | None = None
     color_title_primary: str = Field(max_length=50)
     color_title_secondary: str = Field(max_length=50)
     color_text_primary: str = Field(max_length=50)
@@ -174,15 +210,21 @@ class ThemeUpdate(BaseModel):
     color_buttons_hover: str | None = Field(None, max_length=50)
     color_buttons_text: str | None = Field(None, max_length=50)
     system_uses_landing_buttons: bool | None = None
-    color_buttons_system: str | None = Field(None, max_length=50)
-    color_buttons_system_hover: str | None = Field(None, max_length=50)
-    color_buttons_system_text: str | None = Field(None, max_length=50)
+    color_buttons_system: _HexColor | None = None
+    color_buttons_system_hover: _HexColor | None = None
+    color_buttons_system_text: _HexColor | None = None
     color_title_primary: str | None = Field(None, max_length=50)
     color_title_secondary: str | None = Field(None, max_length=50)
     color_text_primary: str | None = Field(None, max_length=50)
     color_text_secondary: str | None = Field(None, max_length=50)
     color_link_primary: str | None = Field(None, max_length=50)
     color_link_secondary: str | None = Field(None, max_length=50)
+
+
+class ThemeDuplicate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=255)
 
 
 class ThemeRead(BaseModel):

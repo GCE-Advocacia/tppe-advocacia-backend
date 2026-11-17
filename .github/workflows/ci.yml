@@ -133,6 +133,7 @@ jobs:
     name: Integration Tests
     needs: [test-unit]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -179,7 +180,7 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run integration tests
-        run: pytest tests/integration -v --cov=app --cov-report=xml --cov-report=term-missing
+        run: pytest tests/integration -v -o faulthandler_timeout=120 --cov=app --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -206,6 +207,11 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       APP_ENV: test
       APP_NAME: Advocacia API
@@ -221,6 +227,8 @@ jobs:
       JWT_SECRET_KEY: test-secret-key-for-ci-minimum-32-bytes!!
       JWT_EXPIRE_MINUTES: "60"
       RESEND_API_KEY: test-resend-api-key-for-ci-placeholder
+      # Chave Fernet só de teste, para os fluxos de e-mail contra o Mailpit.
+      EMAIL_ENCRYPTION_KEYS: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
     steps:
       - uses: actions/checkout@v4
 
