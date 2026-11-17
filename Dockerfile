@@ -25,8 +25,4 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
 
-CMD ["sh", "scripts/start.sh"]   
-
-
-
-       
+CMD ["sh", "scripts/start.sh"]
