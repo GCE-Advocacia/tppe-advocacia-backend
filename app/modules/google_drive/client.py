@@ -38,6 +38,8 @@ class DriveApiError(Exception):
 class DriveClient(Protocol):
     def create_folder(self, name: str, parent_id: str | None) -> str: ...
 
+    def find_folder(self, name: str, parent_id: str | None) -> str | None: ...
+
     def folder_exists(self, folder_id: str) -> bool: ...
 
     def upload_file(
@@ -99,6 +101,31 @@ class GoogleDriveApiClient:
             lambda: self._service.files().create(body=body, fields="id").execute()
         )
         return created["id"]
+
+    def find_folder(self, name: str, parent_id: str | None) -> str | None:
+        """ID da pasta mais antiga com esse nome dentro de `parent_id`.
+
+        Com o escopo `drive.file`, só enxerga pastas criadas pelo próprio app,
+        inclusive em conexões anteriores com a mesma conta.
+        """
+        escaped = name.replace("\\", "\\\\").replace("'", "\\'")
+        query = (
+            f"name = '{escaped}' and mimeType = '{_FOLDER_MIME}' and "
+            f"trashed = false and '{parent_id or 'root'}' in parents"
+        )
+        result = self._execute(
+            lambda: self._service.files()
+            .list(
+                q=query,
+                spaces="drive",
+                orderBy="createdTime",
+                pageSize=1,
+                fields="files(id)",
+            )
+            .execute()
+        )
+        files = result.get("files", [])
+        return files[0]["id"] if files else None
 
     def folder_exists(self, folder_id: str) -> bool:
         try:

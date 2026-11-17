@@ -143,18 +143,14 @@ class GoogleDriveService:
 
     # ----- pastas ---------------------------------------------------------
 
+    # Pastas só são criadas com a linha da conexão travada e depois de
+    # procurar no Drive uma pasta já existente com o mesmo nome. Assim nem
+    # requisições simultâneas nem uma reconexão (que zera o root_folder_id)
+    # duplicam pastas.
+
     def root_folder_id(self, client: DriveClient) -> str:
-        connection = self.connections.get()
-        if connection is None:
-            raise GoogleDriveNotConnectedError()
-        if connection.root_folder_id and client.folder_exists(
-            connection.root_folder_id
-        ):
-            return connection.root_folder_id
-        folder_id = client.create_folder(ROOT_FOLDER_NAME, None)
         with unit_of_work(self.db):
-            self.connections.set_root_folder(folder_id)
-        return folder_id
+            return self._locked_root_folder_id(client)
 
     def process_folder_id(
         self, client: DriveClient, process_id: int, process_number: str
@@ -162,11 +158,38 @@ class GoogleDriveService:
         folder_id = self.folders.get_folder_id(process_id)
         if folder_id and client.folder_exists(folder_id):
             return folder_id
-        root_id = self.root_folder_id(client)
-        folder_id = client.create_folder(format_cnj(process_number), root_id)
         with unit_of_work(self.db):
+            root_id = self._locked_root_folder_id(client)
+            # Relido com a trava: outra requisição pode ter criado a pasta.
+            folder_id = self.folders.get_folder_id(process_id)
+            if folder_id and client.folder_exists(folder_id):
+                return folder_id
+            folder_id = self._find_or_create_folder(
+                client, format_cnj(process_number), root_id
+            )
             self.folders.set_folder_id(process_id, folder_id)
         return folder_id
+
+    def _locked_root_folder_id(self, client: DriveClient) -> str:
+        """Chamar dentro de `unit_of_work`: a trava vale até o commit."""
+        connection = self.connections.get_for_update()
+        if connection is None:
+            raise GoogleDriveNotConnectedError()
+        if connection.root_folder_id and client.folder_exists(
+            connection.root_folder_id
+        ):
+            return connection.root_folder_id
+        folder_id = self._find_or_create_folder(client, ROOT_FOLDER_NAME, None)
+        self.connections.set_root_folder(folder_id)
+        return folder_id
+
+    @staticmethod
+    def _find_or_create_folder(
+        client: DriveClient, name: str, parent_id: str | None
+    ) -> str:
+        return client.find_folder(name, parent_id) or client.create_folder(
+            name, parent_id
+        )
 
     # ----- falhas ---------------------------------------------------------
 

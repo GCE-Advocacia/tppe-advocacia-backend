@@ -11,6 +11,19 @@ class GoogleDriveConnectionRepository:
     def get(self) -> GoogleDriveConnection | None:
         return self.db.scalars(select(GoogleDriveConnection)).first()
 
+    def get_for_update(self) -> GoogleDriveConnection | None:
+        """Trava a linha da conexão até o fim da transação.
+
+        Serializa a criação de pastas: duas requisições simultâneas não criam
+        a mesma pasta duas vezes. `populate_existing` relê o que outra
+        transação gravou enquanto esta esperava a trava.
+        """
+        return self.db.scalars(
+            select(GoogleDriveConnection)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).first()
+
     def save(
         self, encrypted_refresh_token: str, email: str | None, connected_by: int
     ) -> GoogleDriveConnection:
