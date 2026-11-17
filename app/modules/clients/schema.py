@@ -6,6 +6,28 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 from app.modules.processes.model import MovementSource, ProcessStatus
 
 
+def _check_digit(base: str, weights: list[int]) -> str:
+    total = sum(int(d) * w for d, w in zip(base, weights))
+    rest = total % 11
+    return "0" if rest < 2 else str(11 - rest)
+
+
+def is_valid_cpf(cpf: str) -> bool:
+    if len(set(cpf)) == 1:
+        return False
+    d1 = _check_digit(cpf[:9], list(range(10, 1, -1)))
+    d2 = _check_digit(cpf[:9] + d1, list(range(11, 1, -1)))
+    return cpf[-2:] == d1 + d2
+
+
+def is_valid_cnpj(cnpj: str) -> bool:
+    if len(set(cnpj)) == 1:
+        return False
+    d1 = _check_digit(cnpj[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    d2 = _check_digit(cnpj[:12] + d1, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    return cnpj[-2:] == d1 + d2
+
+
 class ClientCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=120)
     email: EmailStr | None = None
@@ -22,6 +44,10 @@ class ClientCreate(BaseModel):
             raise ValueError("CPF e CNPJ não podem ser informados simultaneamente")
         if not has_cpf and not has_cnpj:
             raise ValueError("Informe CPF ou CNPJ")
+        if has_cpf and not is_valid_cpf(self.cpf):
+            raise ValueError("CPF inválido")
+        if has_cnpj and not is_valid_cnpj(self.cnpj):
+            raise ValueError("CNPJ inválido")
         return self
 
 
@@ -37,6 +63,10 @@ class ClientUpdate(BaseModel):
     def validate_cpf_cnpj(self) -> "ClientUpdate":
         if self.cpf is not None and self.cnpj is not None:
             raise ValueError("CPF e CNPJ não podem ser informados simultaneamente")
+        if self.cpf is not None and not is_valid_cpf(self.cpf):
+            raise ValueError("CPF inválido")
+        if self.cnpj is not None and not is_valid_cnpj(self.cnpj):
+            raise ValueError("CNPJ inválido")
         return self
 
 
