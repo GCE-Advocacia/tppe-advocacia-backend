@@ -56,14 +56,18 @@ class GoogleOAuthFlow:
         url, _ = self._flow(state=state).authorization_url(**options)
         return url
 
+    def exchange(self, code: str):
+        """Troca o `code` do callback pelas credenciais completas (com id_token)."""
+        flow = self._flow()
+        flow.fetch_token(code=code)
+        return flow.credentials
+
     def exchange_code(self, code: str) -> tuple[str, str]:
         """Troca o `code` do callback por tokens.
 
         Retorna (refresh_token, scope). `prompt=consent` no auth garante
         que o Google devolva um refresh_token.
         """
-        flow = self._flow()
-        flow.fetch_token(code=code)
-        credentials = flow.credentials
+        credentials = self.exchange(code)
         scope = " ".join(credentials.scopes or self._scopes)
         return credentials.refresh_token, scope

@@ -113,8 +113,34 @@ def explain_exception(
     return Explained("Algo deu errado no teste.", "Tente de novo em alguns minutos.")
 
 
+def explain_gmail_error(reason: str) -> Explained:
+    text = reason.lower()
+    if "revogado" in text or "401" in text:
+        return Explained(
+            "O acesso à conta Google foi revogado ou expirou.",
+            'Em "Opções avançadas", clique em "Trocar conta" e conecte o Gmail de novo.',
+        )
+    if "403" in text or "429" in text:
+        return Explained(
+            "O Google limitou os envios desta conta por enquanto.",
+            "Espere alguns minutos. O sistema tenta de novo sozinho e, enquanto "
+            "isso, usa o e-mail do sistema.",
+        )
+    if "400" in text:
+        return Explained(
+            "O Google recusou este e-mail.",
+            "Confira o endereço do destinatário e tente de novo.",
+        )
+    return Explained(
+        "Não foi possível falar com o Gmail.",
+        "Tente de novo em alguns minutos. O sistema também tenta sozinho.",
+    )
+
+
 def explain_send_error(err: EmailSendError, preset: ProviderPreset | None) -> Explained:
     """Erro já classificado pelo provedor (só tem código e texto)."""
+    if err.reason.startswith("Gmail"):
+        return explain_gmail_error(err.reason)
     code = err.smtp_code
     if code is None:
         match = _CODE.search(err.reason)

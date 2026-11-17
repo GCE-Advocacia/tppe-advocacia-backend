@@ -219,6 +219,10 @@ class Settings(BaseSettings):
         "http://localhost:8000/api/v1/integrations/google-drive/callback",
         validation_alias="GOOGLE_DRIVE_REDIRECT_URI",
     )
+    google_gmail_redirect_uri: str = Field(
+        "http://localhost:8000/api/v1/email-settings/gmail/callback",
+        validation_alias="GOOGLE_GMAIL_REDIRECT_URI",
+    )
     google_pull_interval_minutes: int = Field(
         5,
         ge=1,
@@ -330,6 +334,16 @@ class Settings(BaseSettings):
             and self.google_client_secret
             and self.google_token_encryption_key
             and self.google_drive_redirect_uri
+        )
+
+    @property
+    def google_gmail_configured(self) -> bool:
+        # O token do Gmail é guardado com a mesma chave das senhas de e-mail.
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_gmail_redirect_uri
+            and self.email_encryption_keys
         )
 
     @property

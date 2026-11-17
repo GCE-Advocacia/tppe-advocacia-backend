@@ -3,6 +3,7 @@
 
 from app.config.settings import Settings
 from app.modules.email.factory import ProviderConfig
+from app.modules.email.gmail_provider import GmailConfig
 from app.modules.email.resend_provider import ResendConfig
 from app.modules.email.smtp_provider import SmtpConfig
 from app.modules.email_settings.model import EmailProfile
@@ -39,6 +40,22 @@ def build_config(
     reply_to: str | None,
     settings: Settings,
 ) -> ProviderConfig:
+    if provider == "gmail":
+        # Conta Google conectada pelo OAuth: o segredo é o refresh token.
+        required = (("secret", secret), ("from_email", from_email))
+        missing = [name for name, value in required if not value]
+        if missing:
+            raise EmailProfileIncompleteError(missing)
+        return GmailConfig(
+            refresh_token=secret,
+            client_id=settings.google_client_id,
+            client_secret=settings.google_client_secret,
+            from_email=from_email,
+            from_name=from_name,
+            reply_to=reply_to,
+            max_size_mb=settings.email_max_size_mb,
+            timeout_seconds=settings.smtp_timeout_seconds,
+        )
     if provider == "resend":
         required = (("secret", secret), ("from_email", from_email))
         missing = [name for name, value in required if not value]

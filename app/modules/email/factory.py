@@ -6,13 +6,14 @@ from dataclasses import dataclass, replace
 from app.config.settings import Settings
 from app.modules.email.failover import FailoverEmailService
 from app.modules.email.fake_service import FakeEmailService
+from app.modules.email.gmail_provider import GmailConfig, GmailProvider
 from app.modules.email.protocol import EmailProvider
 from app.modules.email.resend_provider import ResendConfig, ResendProvider
 from app.modules.email.smtp_provider import SmtpConfig, SmtpProvider
 
 logger = logging.getLogger(__name__)
 
-ProviderConfig = SmtpConfig | ResendConfig
+ProviderConfig = SmtpConfig | ResendConfig | GmailConfig
 
 
 # Nomes no histórico e no circuit breaker.
@@ -31,6 +32,8 @@ class SenderIdentity:
 def build_provider(config: ProviderConfig, name: str | None = None) -> EmailProvider:
     if isinstance(config, SmtpConfig):
         return SmtpProvider(config, name or "smtp")
+    if isinstance(config, GmailConfig):
+        return GmailProvider(config, name or "gmail")
     return ResendProvider(config, name or "resend")
 
 
