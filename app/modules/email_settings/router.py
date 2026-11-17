@@ -1,6 +1,14 @@
-from fastapi import APIRouter, Depends, Request
+import logging
 
-from app.modules.email_settings.deps import get_email_settings_service
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
+
+from app.config.settings import get_settings
+from app.modules.email_settings.deps import (
+    get_email_settings_service,
+    get_gmail_connect_service,
+)
+from app.modules.email_settings.gmail import GmailConnectError, GmailConnectService
 from app.modules.email_settings.model import EmailIdentity, EmailProfile
 from app.modules.email_settings.schema import (
     ConnectionStepRead,
@@ -12,6 +20,7 @@ from app.modules.email_settings.schema import (
     EmailProfileRead,
     EmailProfileUpdate,
     EmailStatusRead,
+    GmailAuthUrlRead,
     ProviderPresetRead,
     TestSendMeRead,
     TestSendRead,
@@ -22,6 +31,8 @@ from app.modules.users.model import User
 from app.shared.deps.auth import require_admin
 from app.shared.http.responses import SuccessResponse, error_responses, ok
 from app.shared.limiter import limiter, user_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/email-settings", tags=["Email Settings"])
 
@@ -69,6 +80,7 @@ def _identity(identity: EmailIdentity) -> EmailIdentityRead:
 def get_overview(
     _: User = Depends(require_admin),
     service: EmailSettingsService = Depends(get_email_settings_service),
+    gmail: GmailConnectService = Depends(get_gmail_connect_service),
 ) -> SuccessResponse[EmailOverviewRead]:
     profiles = service.list_profiles()
     return ok(
@@ -77,6 +89,7 @@ def get_overview(
             own_account=_read(profiles[0]) if profiles else None,
             system_account_email=service.system_account_email(),
             system_account_configured=service.system_account_email() is not None,
+            gmail_available=gmail.available,
         )
     )
 
@@ -230,3 +243,54 @@ def test_send(
             duration_ms=result.duration_ms,
         )
     )
+
+
+@router.get(
+    "/gmail/auth-url",
+    response_model=SuccessResponse[GmailAuthUrlRead],
+    summary="URL de consentimento do Google para enviar pelo Gmail",
+    responses=error_responses(401, 403, 503),
+)
+def get_gmail_auth_url(
+    current_user: User = Depends(require_admin),
+    gmail: GmailConnectService = Depends(get_gmail_connect_service),
+) -> SuccessResponse[GmailAuthUrlRead]:
+    return ok(GmailAuthUrlRead(auth_url=gmail.build_auth_url(current_user.id)))
+
+
+@router.get(
+    "/gmail/callback",
+    summary="Callback OAuth do Gmail: guarda o acesso e volta para a tela",
+)
+def gmail_callback(
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+    error: str | None = Query(None),
+    gmail: GmailConnectService = Depends(get_gmail_connect_service),
+) -> RedirectResponse:
+    base = f"{get_settings().frontend_url.rstrip('/')}/sistema/configuracoes-email"
+    result = "cancelled" if error == "access_denied" else "error"
+    if not error and code and state:
+        try:
+            gmail.handle_callback(code, state)
+            result = "connected"
+        except GmailConnectError as exc:
+            logger.warning("Gmail OAuth callback refused: %s", exc)
+            result = exc.reason
+        except Exception:
+            logger.exception("Gmail OAuth callback failed")
+    return RedirectResponse(f"{base}?gmail={result}", status_code=status.HTTP_302_FOUND)
+
+
+@router.delete(
+    "/gmail",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Desconecta o Gmail e volta a enviar pela conta do sistema",
+    responses=error_responses(401, 403),
+)
+def disconnect_gmail(
+    current_user: User = Depends(require_admin),
+    gmail: GmailConnectService = Depends(get_gmail_connect_service),
+) -> Response:
+    gmail.disconnect(current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

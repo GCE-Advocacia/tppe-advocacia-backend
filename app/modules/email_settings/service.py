@@ -118,7 +118,7 @@ class EmailSettingsService:
         a já salva no perfil."""
         profile = self._get(profile_id)
         form = self.apply_preset(form)
-        stored = None if form.secret else decrypt_secret(profile, self.settings)
+        stored = self._stored_secret(profile, form)
         return self.tester.test(
             form_to_config(form, stored, self.settings), get_preset(form.preset)
         )
@@ -135,6 +135,8 @@ class EmailSettingsService:
                 raise EmailProfileVersionConflictError()
 
             secret_changed = bool(payload.secret)
+            # Vindo do Gmail, o segredo salvo é o token do Google: não serve de senha.
+            provider_changed = profile.provider != payload.provider
             updates: dict = {
                 field: getattr(payload, field)
                 for field in _AUDITED_FIELDS
@@ -144,13 +146,13 @@ class EmailSettingsService:
                 updates["secret_encrypted"] = get_email_cipher(self.settings).encrypt(
                     payload.secret
                 )
+            elif provider_changed:
+                updates["secret_encrypted"] = None
 
             # Perfil ativo só é salvo depois de passar no teste de conexão.
             # Desativar não precisa de teste.
             if payload.is_active:
-                stored = (
-                    None if secret_changed else decrypt_secret(profile, self.settings)
-                )
+                stored = self._stored_secret(profile, payload)
                 config = form_to_config(payload, stored, self.settings)
                 report = self.tester.test(config, get_preset(payload.preset))
                 updates["last_tested_at"] = datetime.now(timezone.utc)
@@ -181,6 +183,15 @@ class EmailSettingsService:
             updated = self.repository.update(profile, updates)
             self.audit.log_email_settings_updated(updated.name, changes, updated_by)
         return updated
+
+    def _stored_secret(
+        self, profile: EmailProfile, form: EmailProfileForm
+    ) -> str | None:
+        """Senha já salva, só quando o formulário não traz outra e o tipo de
+        conta é o mesmo."""
+        if form.secret or profile.provider != form.provider:
+            return None
+        return decrypt_secret(profile, self.settings)
 
     def test_send(self, profile_id: int, to: str, requested_by: User) -> SendResult:
         """Envia de verdade pelo perfil salvo (só ele, sem failover)."""

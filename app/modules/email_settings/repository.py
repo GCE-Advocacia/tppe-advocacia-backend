@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.modules.email_settings.model import PRIMARY, EmailIdentity, EmailProfile
 
+# Tipos de conta própria que entram na cadeia de envio.
+OWN_ACCOUNT_PROVIDERS = ("smtp", "gmail")
+
 
 class EmailProfileRepository:
     """Este repositório nunca comita. Operações de escrita usam db.add + db.flush
@@ -33,19 +36,19 @@ class EmailProfileRepository:
             .where(
                 EmailProfile.is_active.is_(True),
                 EmailProfile.priority == PRIMARY,
-                EmailProfile.provider == "smtp",
+                EmailProfile.provider.in_(OWN_ACCOUNT_PROVIDERS),
             )
             .order_by(EmailProfile.priority)
         ).all()
         return tuple((row.id, row.version) for row in rows)
 
     def get_own_account(self) -> EmailProfile | None:
-        """Conta própria em uso: perfil primário, ativo e SMTP."""
+        """Conta própria em uso: perfil primário, ativo, SMTP ou Gmail."""
         return self.db.scalars(
             select(EmailProfile).where(
                 EmailProfile.priority == PRIMARY,
                 EmailProfile.is_active.is_(True),
-                EmailProfile.provider == "smtp",
+                EmailProfile.provider.in_(OWN_ACCOUNT_PROVIDERS),
             )
         ).first()
 
@@ -75,6 +78,14 @@ class EmailProfileRepository:
             self.db.scalar(select(EmailIdentity.version).where(EmailIdentity.id == 1))
             or 0
         )
+
+    def get_for_update_primary(self) -> EmailProfile | None:
+        return self.db.scalars(
+            select(EmailProfile)
+            .where(EmailProfile.priority == PRIMARY)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).first()
 
     def get_by_id(self, profile_id: int) -> EmailProfile | None:
         return self.db.get(EmailProfile, profile_id)

@@ -153,6 +153,12 @@ class EmailOverviewRead(BaseModel):
     own_account: EmailProfileRead | None
     system_account_email: str | None
     system_account_configured: bool
+    # O servidor tem as credenciais do Google para "Conectar com Google".
+    gmail_available: bool = False
+
+
+class GmailAuthUrlRead(BaseModel):
+    auth_url: str
 
 
 class TestSendMeRead(BaseModel):
