@@ -41,15 +41,24 @@ class OfficeConfigService:
         self,
         repository: OfficeConfigRepository,
         logo_storage: LogoStorage | None = None,
+        theme_repository: ThemeRepository | None = None,
     ) -> None:
         self.repository = repository
         self.logo_storage = logo_storage or LogoStorage()
+        self.theme_repository = theme_repository
 
     def get(self) -> OfficeConfig:
         return self.repository.get_config()
 
     def update(self, payload: OfficeConfigUpdate) -> OfficeConfig:
         data = payload.model_dump(mode="json", exclude_unset=True)
+        theme_id = data.get("theme_id")
+        if theme_id is not None:
+            theme_repo = getattr(self, "theme_repository", None) or ThemeRepository(
+                self.repository.db
+            )
+            if theme_repo.get_by_id(theme_id) is None:
+                raise ThemeNotFoundError()
         with unit_of_work(self.repository.db):
             return self.repository.update_config(data)
 

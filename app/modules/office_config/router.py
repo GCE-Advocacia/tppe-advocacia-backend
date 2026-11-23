@@ -41,7 +41,7 @@ def get_office_config(
 @router.patch(
     "",
     response_model=SuccessResponse[OfficeConfigRead],
-    responses=error_responses(401, 403),
+    responses=error_responses(401, 403, 404, 422),
     summary="Atualiza a configuração do escritório",
 )
 def update_office_config(
