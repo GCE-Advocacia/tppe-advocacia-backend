@@ -7,7 +7,9 @@ from app.modules.office_config.service import OfficeConfigService, ThemeService
 
 
 def get_office_config_service(db: Session = Depends(get_db)) -> OfficeConfigService:
-    return OfficeConfigService(OfficeConfigRepository(db))
+    return OfficeConfigService(
+        OfficeConfigRepository(db), theme_repository=ThemeRepository(db)
+    )
 
 
 def get_theme_service(db: Session = Depends(get_db)) -> ThemeService:

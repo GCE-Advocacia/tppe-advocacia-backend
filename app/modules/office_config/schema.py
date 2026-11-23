@@ -96,23 +96,23 @@ class OfficeConfigUpdate(BaseModel):
             return None
         return v
 
-    color: str | None = Field(None, max_length=50)
-    color_bg_primary: str | None = Field(None, max_length=50)
-    color_bg_secondary: str | None = Field(None, max_length=50)
-    color_bg_sobre: str | None = Field(None, max_length=50)
-    color_buttons: str | None = Field(None, max_length=50)
-    color_buttons_hover: str | None = Field(None, max_length=50)
-    color_buttons_text: str | None = Field(None, max_length=50)
+    color: _HexColor | None = None
+    color_bg_primary: _HexColor | None = None
+    color_bg_secondary: _HexColor | None = None
+    color_bg_sobre: _HexColor | None = None
+    color_buttons: _HexColor | None = None
+    color_buttons_hover: _HexColor | None = None
+    color_buttons_text: _HexColor | None = None
     system_uses_landing_buttons: bool | None = None
     color_buttons_system: _HexColor | None = None
     color_buttons_system_hover: _HexColor | None = None
     color_buttons_system_text: _HexColor | None = None
-    color_title_primary: str | None = Field(None, max_length=50)
-    color_title_secondary: str | None = Field(None, max_length=50)
-    color_text_primary: str | None = Field(None, max_length=50)
-    color_text_secondary: str | None = Field(None, max_length=50)
-    color_link_primary: str | None = Field(None, max_length=50)
-    color_link_secondary: str | None = Field(None, max_length=50)
+    color_title_primary: _HexColor | None = None
+    color_title_secondary: _HexColor | None = None
+    color_text_primary: _HexColor | None = None
+    color_text_secondary: _HexColor | None = None
+    color_link_primary: _HexColor | None = None
+    color_link_secondary: _HexColor | None = None
     theme_id: int | None = None
 
 
@@ -189,54 +189,82 @@ class OfficeConfigRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def _strip_theme_name(v: object) -> object:
+    if isinstance(v, str):
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("O nome do tema não pode ser vazio.")
+        return stripped
+    return v
+
+
 class ThemeCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(None, max_length=255)
-    color: str = Field(default="#232C43", max_length=50)
-    color_bg_primary: str = Field(max_length=50)
-    color_bg_secondary: str = Field(max_length=50)
-    color_bg_sobre: str = Field(max_length=50)
-    color_buttons: str = Field(max_length=50)
-    color_buttons_hover: str = Field(max_length=50)
-    color_buttons_text: str = Field(max_length=50)
+    color: _HexColor = "#232C43"
+    color_bg_primary: _HexColor
+    color_bg_secondary: _HexColor
+    color_bg_sobre: _HexColor
+    color_buttons: _HexColor
+    color_buttons_hover: _HexColor
+    color_buttons_text: _HexColor
     system_uses_landing_buttons: bool = True
     color_buttons_system: _HexColor | None = None
     color_buttons_system_hover: _HexColor | None = None
     color_buttons_system_text: _HexColor | None = None
-    color_title_primary: str = Field(max_length=50)
-    color_title_secondary: str = Field(max_length=50)
-    color_text_primary: str = Field(max_length=50)
-    color_text_secondary: str = Field(max_length=50)
-    color_link_primary: str = Field(max_length=50)
-    color_link_secondary: str = Field(max_length=50)
+    color_title_primary: _HexColor
+    color_title_secondary: _HexColor
+    color_text_primary: _HexColor
+    color_text_secondary: _HexColor
+    color_link_primary: _HexColor
+    color_link_secondary: _HexColor
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v: object) -> object:
+        return _strip_theme_name(v)
 
 
 class ThemeUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     description: str | None = Field(None, max_length=255)
-    color: str | None = Field(None, max_length=50)
-    color_bg_primary: str | None = Field(None, max_length=50)
-    color_bg_secondary: str | None = Field(None, max_length=50)
-    color_bg_sobre: str | None = Field(None, max_length=50)
-    color_buttons: str | None = Field(None, max_length=50)
-    color_buttons_hover: str | None = Field(None, max_length=50)
-    color_buttons_text: str | None = Field(None, max_length=50)
+    color: _HexColor | None = None
+    color_bg_primary: _HexColor | None = None
+    color_bg_secondary: _HexColor | None = None
+    color_bg_sobre: _HexColor | None = None
+    color_buttons: _HexColor | None = None
+    color_buttons_hover: _HexColor | None = None
+    color_buttons_text: _HexColor | None = None
     system_uses_landing_buttons: bool | None = None
     color_buttons_system: _HexColor | None = None
     color_buttons_system_hover: _HexColor | None = None
     color_buttons_system_text: _HexColor | None = None
-    color_title_primary: str | None = Field(None, max_length=50)
-    color_title_secondary: str | None = Field(None, max_length=50)
-    color_text_primary: str | None = Field(None, max_length=50)
-    color_text_secondary: str | None = Field(None, max_length=50)
-    color_link_primary: str | None = Field(None, max_length=50)
-    color_link_secondary: str | None = Field(None, max_length=50)
+    color_title_primary: _HexColor | None = None
+    color_title_secondary: _HexColor | None = None
+    color_text_primary: _HexColor | None = None
+    color_text_secondary: _HexColor | None = None
+    color_link_primary: _HexColor | None = None
+    color_link_secondary: _HexColor | None = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v: object) -> object:
+        if v is None:
+            return None
+        return _strip_theme_name(v)
 
 
 class ThemeDuplicate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(None, min_length=1, max_length=100)
     description: str | None = Field(None, max_length=255)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v: object) -> object:
+        if v is None:
+            return None
+        return _strip_theme_name(v)
 
 
 class ThemeRead(BaseModel):

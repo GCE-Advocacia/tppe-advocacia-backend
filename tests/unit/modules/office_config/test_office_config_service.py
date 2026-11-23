@@ -1,13 +1,18 @@
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from app.modules.office_config.model import OfficeConfig
 from app.modules.office_config.schema import (
     ListItem,
     OfficeConfigUpdate,
+    ThemeCreate,
+    ThemeDuplicate,
+    ThemeUpdate,
 )
 from app.modules.office_config.service import OfficeConfigService
+from app.shared.exceptions import ThemeNotFoundError
 
 
 def make_config(**kwargs) -> OfficeConfig:
@@ -187,3 +192,75 @@ class TestUpdate:
         repo.update_config.return_value = make_config(**colors_payload)
         service.update(OfficeConfigUpdate(**colors_payload))
         repo.update_config.assert_called_once_with(colors_payload)
+
+    def test_update_with_nonexistent_theme_id_raises_not_found(self, service, repo):
+        theme_repo = MagicMock()
+        theme_repo.get_by_id.return_value = None
+        service.theme_repository = theme_repo
+
+        with pytest.raises(ThemeNotFoundError):
+            service.update(OfficeConfigUpdate(theme_id=999999))
+
+        theme_repo.get_by_id.assert_called_once_with(999999)
+        repo.update_config.assert_not_called()
+
+    def test_update_with_valid_theme_id_succeeds(self, service, repo):
+        theme_repo = MagicMock()
+        theme_repo.get_by_id.return_value = MagicMock(id=2)
+        service.theme_repository = theme_repo
+        repo.update_config.return_value = make_config()
+
+        service.update(OfficeConfigUpdate(theme_id=2))
+
+        theme_repo.get_by_id.assert_called_once_with(2)
+        repo.update_config.assert_called_once_with({"theme_id": 2})
+
+    def test_update_with_none_theme_id_skips_theme_lookup(self, service, repo):
+        theme_repo = MagicMock()
+        service.theme_repository = theme_repo
+        repo.update_config.return_value = make_config()
+
+        service.update(OfficeConfigUpdate(theme_id=None))
+
+        theme_repo.get_by_id.assert_not_called()
+        repo.update_config.assert_called_once_with({"theme_id": None})
+
+
+class TestColorAndThemeNameValidation:
+    @pytest.mark.parametrize(
+        "field",
+        ["color", "color_bg_primary", "color_buttons", "color_link_secondary"],
+    )
+    @pytest.mark.parametrize(
+        "invalid_color", ["nao-eh-uma-cor", "rgb(0,0,0)", "#12345"]
+    )
+    def test_office_config_rejects_invalid_hex_colors(self, field, invalid_color):
+        with pytest.raises(ValidationError):
+            OfficeConfigUpdate(**{field: invalid_color})
+
+    @pytest.mark.parametrize("blank_name", ["", "   ", "\t\n"])
+    def test_theme_schemas_reject_whitespace_names(self, blank_name):
+        base_colors = {
+            "color_bg_primary": "#232C43",
+            "color_bg_secondary": "#F5F3EF",
+            "color_bg_sobre": "#FFFFFF",
+            "color_buttons": "#661C16",
+            "color_buttons_hover": "#A52020",
+            "color_buttons_text": "#FFFFFF",
+            "color_title_primary": "#FFFFFF",
+            "color_title_secondary": "#232C43",
+            "color_text_primary": "#FFFFFF",
+            "color_text_secondary": "#6B7280",
+            "color_link_primary": "#FFFFFF",
+            "color_link_secondary": "#661C16",
+        }
+        with pytest.raises(ValidationError):
+            ThemeCreate(name=blank_name, **base_colors)
+        with pytest.raises(ValidationError):
+            ThemeUpdate(name=blank_name)
+        with pytest.raises(ValidationError):
+            ThemeDuplicate(name=blank_name)
+
+    def test_theme_schemas_strip_valid_names(self):
+        assert ThemeUpdate(name="  Meu Tema  ").name == "Meu Tema"
+        assert ThemeDuplicate(name="  Copia  ").name == "Copia"

@@ -387,3 +387,66 @@ class TestThemeCrossAudit:
             if k.startswith("color") or k == "system_uses_landing_buttons"
         ]:
             assert copy[key] == original[key]
+
+    def test_patch_office_config_with_nonexistent_theme_id_returns_404(
+        self, client, admin_headers
+    ):
+        before = client.get(OFFICE_CONFIG_URL).json()["data"]
+        response = client.patch(
+            OFFICE_CONFIG_URL,
+            headers=admin_headers,
+            json={"theme_id": 999999},
+        )
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "THEME_NOT_FOUND"
+        assert client.get(OFFICE_CONFIG_URL).json()["data"] == before
+
+    def test_theme_rejects_whitespace_only_names_and_invalid_landing_colors(
+        self, client, admin_headers
+    ):
+        created = client.post(
+            THEMES_URL, headers=admin_headers, json=valid_theme_payload("Nome Valido")
+        )
+        assert created.status_code == 201
+        theme_id = created.json()["data"]["id"]
+
+        assert (
+            client.post(
+                THEMES_URL,
+                headers=admin_headers,
+                json=valid_theme_payload("     "),
+            ).status_code
+            == 422
+        )
+        assert (
+            client.put(
+                f"{THEMES_URL}/{theme_id}",
+                headers=admin_headers,
+                json={"name": "   "},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(
+                f"{THEMES_URL}/{theme_id}/duplicate",
+                headers=admin_headers,
+                json={"name": "   "},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.patch(
+                OFFICE_CONFIG_URL,
+                headers=admin_headers,
+                json={"color_bg_primary": "nao-eh-uma-cor"},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(
+                THEMES_URL,
+                headers=admin_headers,
+                json={**valid_theme_payload("Cor Invalida"), "color_buttons": "red"},
+            ).status_code
+            == 422
+        )
